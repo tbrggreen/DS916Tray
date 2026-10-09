@@ -1,0 +1,99 @@
+{
+  "name": "DS916 Default Portrait",
+  "width": 462,
+  "height": 1920,
+  "background": "#070b13ff",
+  "sensorMap": {},
+  "themeColors": {},
+  "visibleSensors": [
+    "CPU_TEMP"
+  ],
+  "customFonts": [],
+  "elements": [
+    {
+      "id": "default_background",
+      "type": "rect",
+      "x": 10,
+      "y": 10,
+      "w": 442,
+      "h": 1900,
+      "z": 0,
+      "visible": true,
+      "fillColor": "#0b1220ff",
+      "borderColor": "#263a56ff",
+      "borderThickness": 2,
+      "cornerRadius": 18
+    },
+    {
+      "id": "cpu_label",
+      "type": "static",
+      "x": 31,
+      "y": 540,
+      "w": 400,
+      "h": 45,
+      "z": 1,
+      "visible": true,
+      "customText": "CPU TEMPERATURE",
+      "fontSize": 25,
+      "fontFamily": "Consolas",
+      "color": "#8ca6c8ff",
+      "bold": true,
+      "align": "center"
+    },
+    {
+      "id": "cpu_temperature",
+      "type": "text",
+      "x": 25,
+      "y": 585,
+      "w": 412,
+      "h": 115,
+      "z": 2,
+      "visible": true,
+      "sensorKey": "CPU_TEMP",
+      "unit": " °C",
+      "fontSize": 76,
+      "fontFamily": "Consolas",
+      "color": "#ffffffff",
+      "bold": true,
+      "align": "center"
+    },
+    {
+      "id": "time_label",
+      "type": "static",
+      "x": 31,
+      "y": 1030,
+      "w": 400,
+      "h": 42,
+      "z": 3,
+      "visible": true,
+      "customText": "CURRENT TIME",
+      "fontSize": 22,
+      "fontFamily": "Consolas",
+      "color": "#8ca6c8ff",
+      "bold": true,
+      "align": "center"
+    },
+    {
+      "id": "current_time",
+      "type": "clock",
+      "x": 20,
+      "y": 1070,
+      "w": 422,
+      "h": 115,
+      "z": 4,
+      "visible": true,
+      "clockFormat": "24h",
+      "clockSeconds": false,
+      "fontSize": 82,
+      "fontFamily": "Consolas",
+      "color": "#ffffffff",
+      "bold": true,
+      "align": "center"
+    }
+  ],
+  "autoScreens": {
+    "enabled": false
+  },
+  "decorativeAnimation": false,
+  "decorative_animation": false
+}

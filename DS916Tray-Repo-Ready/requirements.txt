@@ -1,0 +1,11 @@
+# Core Windows app dependencies
+Pillow>=10.0
+pyserial>=3.5
+pystray>=0.19
+psutil>=5.9
+
+# Windows media-session (GSMTC) integration for player metadata and playback controls
+winsdk>=1.0.0b10; platform_system == "Windows"
+
+# Packaging into a standalone Windows executable
+pyinstaller>=6.0; platform_system == "Windows"

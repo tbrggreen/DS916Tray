@@ -1,0 +1,99 @@
+{
+  "name": "DS916 Default Album",
+  "width": 1920,
+  "height": 462,
+  "background": "#070b13ff",
+  "sensorMap": {},
+  "themeColors": {},
+  "visibleSensors": [
+    "CPU_TEMP"
+  ],
+  "customFonts": [],
+  "elements": [
+    {
+      "id": "default_background",
+      "type": "rect",
+      "x": 10,
+      "y": 10,
+      "w": 1900,
+      "h": 442,
+      "z": 0,
+      "visible": true,
+      "fillColor": "#0b1220ff",
+      "borderColor": "#263a56ff",
+      "borderThickness": 2,
+      "cornerRadius": 18
+    },
+    {
+      "id": "cpu_label",
+      "type": "static",
+      "x": 90,
+      "y": 105,
+      "w": 650,
+      "h": 40,
+      "z": 1,
+      "visible": true,
+      "customText": "CPU TEMPERATURE",
+      "fontSize": 25,
+      "fontFamily": "Consolas",
+      "color": "#8ca6c8ff",
+      "bold": true,
+      "align": "left"
+    },
+    {
+      "id": "cpu_temperature",
+      "type": "text",
+      "x": 90,
+      "y": 150,
+      "w": 700,
+      "h": 115,
+      "z": 2,
+      "visible": true,
+      "sensorKey": "CPU_TEMP",
+      "unit": " °C",
+      "fontSize": 76,
+      "fontFamily": "Consolas",
+      "color": "#ffffffff",
+      "bold": true,
+      "align": "left"
+    },
+    {
+      "id": "time_label",
+      "type": "static",
+      "x": 1040,
+      "y": 105,
+      "w": 650,
+      "h": 40,
+      "z": 3,
+      "visible": true,
+      "customText": "CURRENT TIME",
+      "fontSize": 22,
+      "fontFamily": "Consolas",
+      "color": "#8ca6c8ff",
+      "bold": true,
+      "align": "left"
+    },
+    {
+      "id": "current_time",
+      "type": "clock",
+      "x": 1040,
+      "y": 150,
+      "w": 760,
+      "h": 115,
+      "z": 4,
+      "visible": true,
+      "clockFormat": "24h",
+      "clockSeconds": false,
+      "fontSize": 82,
+      "fontFamily": "Consolas",
+      "color": "#ffffffff",
+      "bold": true,
+      "align": "left"
+    }
+  ],
+  "autoScreens": {
+    "enabled": false
+  },
+  "decorativeAnimation": false,
+  "decorative_animation": false
+}

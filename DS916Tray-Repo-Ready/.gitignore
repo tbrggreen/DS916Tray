@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+build/
+dist/
+*.spec
+.env
+.DS_Store
+Thumbs.db
+*.log
+config.json
+hwinfo_sensors.json
