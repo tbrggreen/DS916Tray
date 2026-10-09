@@ -6,6 +6,18 @@ echo ==========================================
 echo  DS916Tray - build Windows executable
 echo ==========================================
 
+echo.
+echo Checking whether DS916Tray is running...
+tasklist /FI "IMAGENAME eq DS916Tray.exe" 2>nul | find /I "DS916Tray.exe" >nul
+if not errorlevel 1 (
+  echo DS916Tray is running. Closing it before the build...
+  taskkill /IM DS916Tray.exe /T /F >nul 2>nul
+  timeout /t 2 /nobreak >nul
+) else (
+  echo DS916Tray is not running.
+)
+
+echo.
 where py >nul 2>nul
 if errorlevel 1 (
   echo ERROR: Python launcher "py" not found. Install Python 3.10+ and enable Add Python to PATH.
@@ -38,6 +50,14 @@ echo.
 echo Build completed: dist\DS916Tray.exe
 echo Desktop shortcut created. Test on the target PC before publishing.
 echo The included tbrggreen theme is copied only if it does not already exist.
+echo.
+choice /C YN /N /M "Launch the newly built DS916Tray now? [Y/N] "
+if errorlevel 2 goto :finished
+if errorlevel 1 start "DS916Tray" "%CD%\dist\DS916Tray.exe"
+
+:finished
+echo.
+echo Done.
 pause
 exit /b 0
 
