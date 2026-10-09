@@ -1,5 +1,16 @@
 # Changelog
 
+## [35.0] - 2026-10-09
+
+### Added
+- Added a configurable RTSS FPS threshold for automatic Gaming mode activation.
+- Added a slider to configure the FPS threshold from 1 to 120 FPS.
+- Gaming mode now activates when either the GPU load threshold or the RTSS FPS threshold is reached.
+
+### Changed
+- Set the default RTSS FPS threshold to 45 FPS.
+- Preserved the existing GPU load threshold setting.
+
 ## v34.0.0 — repository release preparation
 
 - Updated the packaged application to the working v34 source.
