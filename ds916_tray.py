@@ -69,6 +69,7 @@ DEFAULT_CFG = {
     'fps':        12,
     'screen_mode': 'auto',          # auto, gaming, work, idle
     'gaming_gpu_threshold': 45,
+    'gaming_fps_threshold': 45,
     'language': 'English',      # selected UI language
     'weather_city': 'Москва',
     'weather_latitude': 55.7558,
@@ -2193,7 +2194,8 @@ def _detect_display_mode(sensors):
     except Exception: cpu = 0.0
     # RTSS FPS or configurable GPU load can trigger Gaming mode.
     gpu_threshold = max(10, min(90, int(cfg.get('gaming_gpu_threshold', 45))))
-    if fps >= 45 or gpu >= gpu_threshold:
+    fps_threshold = max(1, min(120, int(cfg.get('gaming_fps_threshold', 45))))
+    if fps >= fps_threshold or gpu >= gpu_threshold:
         target = 'gaming'
         _mode_low_since = None
     elif cpu < 8 and gpu < 5 and fps < 8:
@@ -2439,7 +2441,8 @@ BUILTIN_TRANSLATIONS = {
     'Idle screen': 'Экран ожидания',
     'Automatic Gaming detection': 'Автоопределение игрового режима',
     'Switch to Gaming when GPU load reaches:': 'Переключать в игровой режим при загрузке GPU:',
-    'RTSS FPS ≥ 45 also triggers Gaming. Idle requires CPU < 8%, GPU < 5% and FPS < 8 for 90 seconds.': 'Игровой режим также включается при RTSS FPS ≥ 45. Режим ожидания: CPU < 8%, GPU < 5% и FPS < 8 в течение 90 секунд.',
+    'Switch to Gaming when RTSS FPS reaches:': 'Переключать в игровой режим при FPS по RTSS:',
+    'Idle requires CPU < 8%, GPU < 5% and FPS < 8 for 90 seconds.': 'Режим ожидания: CPU < 8%, GPU < 5% и FPS < 8 в течение 90 секунд.',
     'Album (horizontal)': 'Альбомная ориентация',
     'Rotated album (180°)': 'Альбомная, поворот 180°',
     'Portrait (vertical)': 'Книжная ориентация',
@@ -2921,9 +2924,27 @@ def open_settings():
         command=update_gpu_threshold_label)
     gpu_threshold_scale.set(gpu_threshold_var.get())
     gpu_threshold_scale.pack(fill='x', padx=12, pady=(2, 0))
+    # Fine-tune the RTSS FPS threshold used to switch automatically to Gaming.
+    fps_threshold_frame = ttk.Frame(gpu_threshold_frame)
+    fps_threshold_frame.pack(fill='x', padx=0, pady=(2, 0))
+    fps_threshold_header = ttk.Frame(fps_threshold_frame)
+    fps_threshold_header.pack(fill='x', padx=10, pady=(5, 0))
+    ttk.Label(fps_threshold_header, text=tr('Switch to Gaming when RTSS FPS reaches:')).pack(side='left')
+    fps_threshold_value_lbl = ttk.Label(
+        fps_threshold_header,
+        text=f"{max(1, min(120, int(cfg.get('gaming_fps_threshold', 45))))} FPS",
+        font=('Segoe UI', 9, 'bold'))
+    fps_threshold_value_lbl.pack(side='right')
+    def update_fps_threshold_label(value):
+        fps_threshold_value_lbl.config(text=f'{int(float(value))} FPS')
+    fps_threshold_scale = ttk.Scale(
+        fps_threshold_frame, from_=1, to=120, orient='horizontal',
+        command=update_fps_threshold_label)
+    fps_threshold_scale.set(max(1, min(120, int(cfg.get('gaming_fps_threshold', 45)))))
+    fps_threshold_scale.pack(fill='x', padx=12, pady=(2, 0))
     ttk.Label(gpu_threshold_frame,
-              text=tr('RTSS FPS ≥ 45 also triggers Gaming. Idle requires CPU < 8%, GPU < 5% and FPS < 8 for 90 seconds.'),
-              foreground='#999', wraplength=430, justify='left').pack(anchor='w', padx=10, pady=(0, 8))
+              text=tr('Idle requires CPU < 8%, GPU < 5% and FPS < 8 for 90 seconds.'),
+              foreground='#999', wraplength=430, justify='left').pack(anchor='w', padx=10, pady=(4, 8))
 
     orientation_labels = {
         'album': tr('Album (horizontal)'),
@@ -3059,6 +3080,7 @@ def open_settings():
         cfg['fps']           = fps_var.get()
         cfg['screen_mode']   = screen_mode_var.get()
         cfg['gaming_gpu_threshold'] = int(round(float(gpu_threshold_scale.get())))
+        cfg['gaming_fps_threshold'] = int(round(float(fps_threshold_scale.get())))
         new_orientation = selected_orientation_key()
         old_orientation = cfg.get('display_orientation') or ('rotated_portrait' if cfg.get('rotate_display', True) else 'portrait')
         if old_orientation == 'landscape':
@@ -3096,7 +3118,7 @@ def open_settings():
         # for understanding behavior changes later (e.g. "why did logging
         # stop" traces back to someone switching log_level to 'off' on a
         # specific date).
-        for key in ('com_port','fps','screen_mode','gaming_gpu_threshold','rotate_display','display_orientation','decorative_animation',
+        for key in ('com_port','fps','screen_mode','gaming_gpu_threshold','gaming_fps_threshold','rotate_display','display_orientation','decorative_animation',
                     'autostart','rtss_process','hwinfo_path','hwinfo_auto_restart','log_level',
                     'weather_city','weather_latitude','weather_longitude','weather_timezone'):
             if old_cfg.get(key) != cfg.get(key):
