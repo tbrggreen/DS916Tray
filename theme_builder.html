@@ -1,0 +1,2215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>DS916 Theme Builder</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f0f11;--panel:#18181c;--panel2:#1f1f25;--border:#2a2a35;
+  --accent:#00b4ff;--accent2:#33c8ff;--text:#e8e6df;--muted:#666;
+  --red:#e05a4b;--green:#4fc87a;--blue:#4b8fe0;--orange:#e0894b;
+  --purple:#a070d0;--teal:#40c8b0;--yellow:#d4b84a;
+}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;font-size:13px;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+#topbar{height:46px;background:var(--panel);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:5px;padding:0 8px;flex-shrink:0;overflow-x:auto}
+.logo{font-size:13px;font-weight:700;color:var(--accent);letter-spacing:.06em;white-space:nowrap;margin-right:4px}
+.btn{background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:4px 9px;border-radius:4px;cursor:pointer;font-size:12px;white-space:nowrap;transition:background .1s}
+.btn:hover{background:#2a2a35}.btn.primary{background:var(--accent);color:#000;border-color:var(--accent);font-weight:700}.btn.primary:hover{background:var(--accent2)}
+.btn.danger{color:var(--red)}
+.sep{width:1px;height:22px;background:var(--border);flex-shrink:0}
+#themeName{background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:4px 8px;border-radius:4px;font-size:12px;width:120px}
+#themeName:focus{outline:none;border-color:var(--accent)}
+.ob{padding:4px 9px;border-radius:4px;cursor:pointer;font-size:12px;border:1px solid var(--border);background:var(--panel2);color:var(--muted);white-space:nowrap}
+.ob.active{background:var(--accent);color:#000;border-color:var(--accent);font-weight:700}
+#zv{color:var(--accent);font-size:12px;min-width:34px;text-align:center}
+#main{display:flex;flex:1;overflow:hidden}
+/* SIDEBAR */
+#sidebar{width:252px;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0}
+.sh{padding:7px 10px 5px;font-size:10px;font-weight:700;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;border-bottom:1px solid var(--border);flex-shrink:0}
+#sbar-top{display:flex;gap:0;flex-shrink:0;border-bottom:1px solid var(--border)}
+#sbar-search{background:var(--panel2);border:none;color:var(--text);padding:6px 10px;font-size:12px;flex:1;outline:none}
+#sbar-search::placeholder{color:var(--muted)}
+#btn-all-sensors{background:var(--panel2);border:none;border-left:1px solid var(--border);color:var(--accent);padding:0 10px;font-size:11px;cursor:pointer;white-space:nowrap;flex-shrink:0}
+#btn-all-sensors:hover{background:#2a2a35}
+.elist{overflow-y:auto;flex:1}
+.egrp{border-bottom:1px solid rgba(255,255,255,.04)}
+.egtitle{padding:6px 10px 3px;font-size:9px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.08em;cursor:pointer;user-select:none;display:flex;align-items:center;gap:4px}
+.egtitle:hover{color:var(--text)}
+.egarrow{font-size:8px;transition:transform .15s;display:inline-block}
+.egrp.collapsed .egarrow{transform:rotate(-90deg)}
+.egrp.collapsed .egrp-items{display:none}
+.egrp.hidden-grp{display:none}
+.ei{display:flex;align-items:center;gap:6px;padding:4px 10px;cursor:grab;transition:background .1s;user-select:none;border-bottom:1px solid rgba(255,255,255,.02)}
+.ei:hover{background:var(--panel2)}.ei:active{cursor:grabbing;background:#252530}
+.ei.hidden{display:none}
+.eico{width:20px;height:20px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0}
+.ic-t{background:rgba(75,143,224,.2);color:var(--blue)}
+.ic-b{background:rgba(79,200,122,.2);color:var(--green)}
+.ic-r{background:rgba(160,112,208,.2);color:var(--purple)}
+.ic-l{background:rgba(64,200,176,.2);color:var(--teal)}
+.ic-p{background:rgba(212,184,74,.15);color:var(--yellow)}
+.ic-s{background:rgba(224,137,75,.2);color:var(--orange)}
+.ic-d{background:rgba(0,180,255,.12);color:var(--accent)}
+.elabel{font-size:11px;font-weight:500;line-height:1.2}
+.esub{font-size:9px;color:var(--muted);margin-top:1px}
+/* CANVAS */
+#cw{flex:1;overflow:auto;background:#070708;display:flex;align-items:flex-start;justify-content:center;padding:24px;position:relative}
+#co{position:relative;transform-origin:top center}
+#canvas{position:relative;background:#111114;overflow:hidden;box-shadow:0 8px 48px rgba(0,0,0,.9)}
+#backImg{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;z-index:0;pointer-events:none}
+#backVid{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;z-index:0;pointer-events:none;display:none}
+.snap-line{position:absolute;pointer-events:none;z-index:9999;opacity:0;transition:opacity .1s}
+.snap-line.snap-h{left:0;right:0;height:1px;background:rgba(255,210,0,.9)}
+.snap-line.snap-v{top:0;bottom:0;width:1px;background:rgba(255,210,0,.9)}
+.snap-line.show{opacity:1}
+/* Canvas elements */
+.ce{position:absolute;cursor:move;user-select:none}
+.ce.sel>.ei2{outline:2px solid var(--accent)!important;outline-offset:1px}
+/* autosize: .ce sized by JS ResizeObserver — ei2 is display:contents so span dictates size */
+.ce.autosize>.ei2{position:absolute;top:0;left:0;width:max-content;height:max-content;white-space:nowrap;pointer-events:none}
+/* fixed size */
+.ce.fixed>.ei2{position:absolute;top:0;left:0;width:100%;height:100%;overflow:hidden;pointer-events:none}
+.rh{position:absolute;bottom:-5px;right:-5px;width:10px;height:10px;background:var(--accent);border-radius:2px;cursor:se-resize;z-index:20;display:none;pointer-events:all}
+.ce.sel .rh{display:block}
+.lz{position:absolute;top:1px;left:1px;font-size:8px;background:rgba(0,0,0,.8);color:var(--accent);padding:1px 3px;border-radius:2px;pointer-events:none;z-index:30;display:none}
+.ce.sel .lz{display:block}
+.iph{width:100%;height:100%;background:rgba(0,180,255,.05);border:2px dashed rgba(0,180,255,.3);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:3px;color:var(--accent);font-size:10px;pointer-events:none}
+/* PROPS */
+#pb{width:262px;background:var(--panel);border-left:1px solid var(--border);overflow-y:auto;flex-shrink:0}
+.ps{border-bottom:1px solid var(--border)}
+.pt{padding:7px 10px 5px;font-size:10px;font-weight:700;letter-spacing:.1em;color:var(--muted);text-transform:uppercase}
+.pr{display:flex;align-items:center;padding:3px 10px;gap:5px;min-height:24px}
+.pr label{font-size:11px;color:var(--muted);flex:0 0 72px;line-height:1.3}
+.pr input,.pr select{flex:1;background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:3px;font-size:11px;min-width:0}
+.pr input:focus,.pr select:focus{outline:none;border-color:var(--accent)}
+.pr input[type=color]{padding:1px;height:24px;cursor:pointer;min-width:34px;flex:0 0 34px}
+.pr input[type=checkbox]{flex:none;width:14px;height:14px;cursor:pointer}
+.pe{padding:24px 12px;text-align:center;color:var(--muted);font-size:12px;line-height:1.7}
+.swatch{width:18px;height:18px;border-radius:2px;border:1px solid rgba(255,255,255,.25);cursor:pointer;flex-shrink:0;transition:transform .1s}
+.swatch:hover{transform:scale(1.15)}
+.palette-row{display:flex;gap:3px;flex-wrap:wrap;flex:1}
+.pr-btn{background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:2px 7px;border-radius:3px;cursor:pointer;font-size:10px;white-space:nowrap}
+.pr-btn:hover{background:#2a2a35}
+/* LAYERS */
+#lp{height:175px;background:var(--panel);border-top:1px solid var(--border);flex-shrink:0;display:flex;flex-direction:column}
+#ll{overflow-y:auto;flex:1}
+.lr{display:flex;align-items:center;gap:5px;padding:4px 10px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,.025)}
+.lr:hover{background:var(--panel2)}.lr.active{background:#202028;border-left:2px solid var(--accent)}
+.lrz{font-size:10px;color:var(--muted);width:20px;text-align:right;flex-shrink:0}
+.ltb{font-size:8px;padding:1px 4px;border-radius:2px;font-weight:700;flex-shrink:0;text-transform:uppercase}
+.lt-t{background:rgba(75,143,224,.2);color:var(--blue)}.lt-b{background:rgba(79,200,122,.2);color:var(--green)}
+.lt-r{background:rgba(160,112,208,.2);color:var(--purple)}.lt-l{background:rgba(64,200,176,.2);color:var(--teal)}
+.lt-p{background:rgba(212,184,74,.15);color:var(--yellow)}.lt-s{background:rgba(224,137,75,.2);color:var(--orange)}
+.lt-d{background:rgba(0,180,255,.12);color:var(--accent)}.lt-i{background:rgba(200,168,75,.15);color:var(--yellow)}
+.lrn{flex:1;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lrv{cursor:pointer;color:var(--muted);font-size:12px;padding:2px 4px}.lrv:hover{color:var(--text)}
+.lrd{cursor:pointer;color:var(--red);font-size:11px;padding:2px 4px;opacity:.5}.lrd:hover{opacity:1}
+#sb{height:22px;background:var(--panel);border-top:1px solid var(--border);display:flex;align-items:center;padding:0 10px;gap:14px;flex-shrink:0;font-size:11px;color:var(--muted)}
+.sdot{width:5px;height:5px;border-radius:50%;background:var(--green);display:inline-block;margin-right:4px}
+#toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:#1e1e26;border:1px solid var(--border);color:var(--text);padding:8px 18px;border-radius:6px;font-size:12px;z-index:3000;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap}
+#toast.show{opacity:1}
+.mbg{position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:2000;display:flex;align-items:center;justify-content:center}
+.modal{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:22px;min-width:340px;max-width:620px;width:90%;max-height:90vh;overflow-y:auto}
+.modal h2{font-size:14px;margin-bottom:14px;color:var(--accent);font-weight:700}
+.mrow{margin-bottom:10px}.mrow label{display:block;font-size:11px;color:var(--muted);margin-bottom:3px}
+.mrow input,.mrow select{width:100%;background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:6px 9px;border-radius:4px;font-size:12px}
+.mrow input:focus,.mrow select:focus{outline:none;border-color:var(--accent)}
+.mbtns{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+select option{background:#1f1f25}
+/* Sensor picker modal */
+.sen-grid{display:grid;grid-template-columns:1fr 1fr;gap:0}
+.sen-cat-title{grid-column:1/-1;padding:8px 10px 4px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);border-bottom:1px solid var(--border);margin-top:8px}
+.sen-item{display:flex;align-items:center;gap:7px;padding:5px 10px;border-bottom:1px solid rgba(255,255,255,.03);cursor:pointer}
+.sen-item:hover{background:var(--panel2)}
+.sen-item input[type=checkbox]{flex-shrink:0;cursor:pointer}
+.sen-item label{font-size:11px;cursor:pointer;flex:1}
+
+/* AI Theme Generator */
+.ai-vibe-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:4px}
+.ai-vibe{border:2px solid var(--border);border-radius:8px;overflow:hidden;cursor:pointer;transition:border-color .15s;background:var(--panel2)}
+.ai-vibe:hover{border-color:#444}
+.ai-vibe.sel{border-color:var(--accent)}
+.ai-vibe-prev{width:100%;height:60px;overflow:hidden}
+.ai-vibe-prev svg{width:100%;height:100%;display:block}
+.ai-vibe-label{font-size:10px;text-align:center;padding:4px 2px;color:var(--text)}
+.ai-sensor-grid{display:grid;grid-template-columns:1fr 1fr;gap:0;max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:6px}
+.ai-sensor-row{display:flex;align-items:center;gap:7px;padding:5px 10px;border-bottom:1px solid rgba(255,255,255,.03)}
+.ai-sensor-row:hover{background:var(--panel2)}
+.ai-sensor-row input{flex-shrink:0;cursor:pointer}
+.ai-sensor-row label{font-size:11px;cursor:pointer;flex:1}
+</style>
+</head>
+<body>
+<div id="topbar">
+  <span class="logo">⬡ DS916</span>
+  <div class="sep"></div>
+  <input id="themeName" type="text" placeholder="ThemeName" value="MyTheme">
+  <div class="sep"></div>
+  <button class="ob active" id="btnV" onclick="setOri('vertical')">▯ Vert</button>
+  <button class="ob" id="btnH" onclick="setOri('horizontal')">▭ Horiz</button>
+  <div class="sep"></div>
+  <button class="btn" onclick="chZoom(-0.1)">−</button>
+  <span id="zv">40%</span>
+  <button class="btn" onclick="chZoom(.1)">+</button>
+  <button class="btn" onclick="chZoom(0)">Fit</button>
+  <div class="sep"></div>
+  <button class="btn" onclick="loadBack()">🖼 Background</button>
+  <button class="btn" onclick="loadImgLayer()">+ Image</button>
+  <div class="sep"></div>
+  <button class="btn" onclick="openSensorMap()">⚙ Sensor Map</button>
+  <button class="btn" onclick="importSensorList()">🔍 Sensors</button>
+  <button class="btn primary" onclick="openAiGenerate()" style="background:linear-gradient(90deg,#a070d0,#00b4ff);border:none;color:#fff">✨ AI Generate</button>
+  <div class="sep"></div>
+  <button class="btn danger" onclick="clearAll()">Clear</button>
+  <button class="btn" onclick="importTheme()">📂 Import</button>
+  <button class="btn primary" onclick="exportTheme()">💾 Save Theme</button>
+</div>
+
+<div id="main">
+  <div id="sidebar">
+    <div class="sh">Elements</div>
+    <div id="sbar-top">
+      <input id="sbar-search" type="text" placeholder="🔍 Filter…" oninput="filterElements(this.value)">
+      <button id="btn-all-sensors" onclick="openSensorPicker()" title="Add sensors to palette">＋ Sensors</button>
+    </div>
+    <div class="elist" id="elist"></div>
+  </div>
+
+  <div style="flex:1;display:flex;flex-direction:column;overflow:hidden">
+    <div id="cw" onclick="desel(event)" ondragover="cwDragOver(event)" ondrop="cwDrop(event)">
+      <div id="co"><div id="canvas">
+        <img id="backImg" src="" style="display:none">
+        <video id="backVid" autoplay loop muted playsinline></video>
+        <div class="snap-line snap-h" id="snapH" style="top:50%"></div>
+        <div class="snap-line snap-v" id="snapV" style="left:50%"></div>
+      </div></div>
+    </div>
+    <div id="lp">
+      <div class="sh">Layers — ↑ front &nbsp; Del=delete &nbsp; click=select</div>
+      <div id="ll"></div>
+    </div>
+  </div>
+
+  <div id="pb">
+    <div class="ps"><div class="pt">Properties</div>
+    <div id="pc"><div class="pe">Select an element<br>to edit its properties.</div></div>
+    </div>
+  </div>
+</div>
+
+<div id="sb">
+  <span><span class="sdot"></span>Ready</span>
+  <span id="ssel">0 elements</span>
+  <span id="ssz">462 × 1920</span>
+  <span id="sinfo">Nothing selected</span>
+</div>
+<div id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+'use strict';
+// ── STATE ────────────────────────────────────────────────────────────────────
+let ori='vertical',CW=462,CH=1920,zoom=0.4;
+let elems=[],selId=null,nid=1,nz=10,backData=null;
+let themeColors=['#00b4ffff','#ff0000ff','#00e888ff','#ffb400ff','#a070d0ff','#ffffffff','#000000cc'];
+let snapEnabled=true;
+
+// ── SENSOR DEFINITIONS ────────────────────────────────────────────────────────
+const SEN={
+  // Time — these are NOT sensor values; handled specially
+  CLOCK:       {l:'Clock',              u:'',     s:'09:34 PM',   max:null, cat:'time'},
+  CLOCKSEC:    {l:'Clock (seconds)',    u:'',     s:'09:34:56 PM',max:null, cat:'time'},
+  DATE:        {l:'Date',              u:'',     s:'16-06-2026', max:null, cat:'time'},
+  WEEKDAY:     {l:'Day of Week',        u:'',     s:'Tuesday',    max:null, cat:'time'},
+  // CPU
+  CPU_USAGE:   {l:'CPU Usage',          u:'%',    s:42,  max:100,  cat:'cpu'},
+  CPU_TEMP:    {l:'CPU Temp',           u:'\u00B0C', s:52, max:110, cat:'cpu'},
+  CPU_FAN:     {l:'CPU Fan',            u:'RPM',  s:1200,max:3000, cat:'cpu'},
+  CPU_FREQ:    {l:'CPU Frequency',      u:'MHz',  s:3800,max:6000, cat:'cpu'},
+  CPU_POWER:   {l:'CPU Power',          u:'W',    s:65,  max:300,  cat:'cpu'},
+  CPU_VOLTAGE: {l:'CPU Voltage',        u:'V',    s:1.2, max:2,    cat:'cpu'},
+  // GPU
+  GPU_USAGE:   {l:'GPU Usage',          u:'%',    s:67,  max:100,  cat:'gpu'},
+  GPU_TEMP:    {l:'GPU Temp',           u:'\u00B0C', s:61, max:110, cat:'gpu'},
+  GPU_FAN1:    {l:'GPU Fan 1',          u:'RPM',  s:1800,max:4000, cat:'gpu'},
+  GPU_FAN2:    {l:'GPU Fan 2',          u:'RPM',  s:1800,max:4000, cat:'gpu'},
+  GPU_FREQ:    {l:'GPU Core Clock',     u:'MHz',  s:1800,max:3000, cat:'gpu'},
+  GPU_POWER:   {l:'GPU Power',          u:'W',    s:200, max:500,  cat:'gpu'},
+  VRAM_USAGE:  {l:'VRAM Usage',         u:'%',    s:45,  max:100,  cat:'gpu'},
+  VRAM_USED:   {l:'VRAM Used',          u:'GB',   s:5.2, max:24,   cat:'gpu'},
+  // RAM
+  RAM_USAGE:   {l:'RAM Usage',          u:'%',    s:58,  max:100,  cat:'ram'},
+  RAM_USED_GB: {l:'RAM Used',           u:'GB',   s:9.3, max:128,  cat:'ram'},
+  RAM_FREE_GB: {l:'RAM Free',           u:'GB',   s:6.7, max:128,  cat:'ram'},
+  RAM_TOTAL:   {l:'RAM Total',          u:'GB',   s:16,  max:null, cat:'ram'},
+  // Storage
+  DISK_USAGE:  {l:'Disk Usage',         u:'%',    s:62,  max:100,  cat:'storage'},
+  DISK_USED:   {l:'Disk Used',          u:'GB',   s:310, max:2000, cat:'storage'},
+  DISK_FREE:   {l:'Disk Free',          u:'GB',   s:190, max:2000, cat:'storage'},
+  DISK_TEMP:   {l:'Disk Temp',          u:'\u00B0C',s:38,max:80,   cat:'storage'},
+  DISK_READ:   {l:'Disk Read',          u:'MB/s', s:120, max:7000, cat:'storage'},
+  DISK_WRITE:  {l:'Disk Write',         u:'MB/s', s:80,  max:7000, cat:'storage'},
+  // Motherboard
+  MB_TEMP:     {l:'Motherboard Temp',   u:'\u00B0C',s:35,max:80,   cat:'motherboard'},
+  CHASSIS_FAN1:{l:'Chassis Fan 1',      u:'RPM',  s:850, max:2000, cat:'motherboard'},
+  CHASSIS_FAN2:{l:'Chassis Fan 2',      u:'RPM',  s:1150,max:2000, cat:'motherboard'},
+  CHASSIS_FAN3:{l:'Chassis Fan 3',      u:'RPM',  s:900, max:2000, cat:'motherboard'},
+  // Network
+  NET_DOWN:    {l:'Download Speed',     u:'MB/s', s:45,  max:null, cat:'network'},
+  NET_UP:      {l:'Upload Speed',       u:'MB/s', s:12,  max:null, cat:'network'},
+  NET_PING:    {l:'Ping',               u:'ms',   s:8,   max:null, cat:'network'},
+  // Framerate — opt-in only (require separate software)
+  RTSS_FPS:    {l:'Framerate — Live (RTSS)',     u:'FPS',  s:120, max:null, cat:'framerate'},
+  RTSS_FPS_MIN:{l:'Framerate Min — Session (RTSS)',u:'FPS', s:95,  max:null, cat:'framerate'},
+  RTSS_FPS_MAX:{l:'Framerate Max — Session (RTSS)',u:'FPS', s:144, max:null, cat:'framerate'},
+  RTSS_FPS_AVG:{l:'Framerate Avg — Session (RTSS)',u:'FPS', s:118, max:null, cat:'framerate'},
+  FRAMERATE:   {l:'Framerate (PresentMon — unreliable w/o Pro)', u:'FPS', s:120, max:null, cat:'framerate'},
+  // System
+  BATTERY:     {l:'Battery',            u:'%',    s:85,  max:100,  cat:'system'},
+};
+
+// Default visible sensor keys in palette
+// These show up in the left panel immediately, without using + Sensors.
+// Kept deliberately minimal — only sensors virtually every desktop system has.
+let visibleSensors=new Set([
+  // Time
+  'CLOCK','CLOCKSEC','DATE','WEEKDAY',
+  // CPU
+  'CPU_USAGE','CPU_TEMP','CPU_FAN',
+  // GPU
+  'GPU_USAGE','GPU_TEMP','GPU_FAN1','GPU_FAN2','VRAM_USAGE',
+  // RAM
+  'RAM_USAGE','RAM_TOTAL',
+  // Storage
+  'DISK_READ','DISK_WRITE',
+  // Network
+  'NET_DOWN','NET_UP',
+  // Motherboard
+  'MB_TEMP','CHASSIS_FAN1','CHASSIS_FAN2','CHASSIS_FAN3',
+  // Framerate: live rolling average via RTSS (requires separate RTSS install).
+  // Session-based min/max/avg variants are opt-in via + Sensors.
+  // FRAMERATE (PresentMon) is also opt-in — unreliable without HWiNFO Pro.
+  'RTSS_FPS',
+]);
+
+// Sensors that show ALL element variants (text+bar+ring+graph+preset)
+// Others show only text + preset to keep the palette clean
+const FULL_PALETTE_KEYS=new Set([
+  'CPU_USAGE','CPU_TEMP','GPU_USAGE','GPU_TEMP','RAM_USAGE','VRAM_USAGE'
+]);
+
+// HWiNFO registry index map
+let sensorMap={
+  CPU_USAGE:0,CPU_TEMP:1,MB_TEMP:2,CPU_FAN:3,
+  CHASSIS_FAN1:4,CHASSIS_FAN2:5,GPU_TEMP:6,
+  GPU_FAN1:7,GPU_FAN2:8,GPU_USAGE:9,
+  RAM_USAGE:null,RAM_USED_GB:null,NET_DOWN:null,NET_UP:null
+};
+
+// ── UTILS ─────────────────────────────────────────────────────────────────────
+function $(id){return document.getElementById(id);}
+let _toastTimer;
+function toast(msg,dur=2400){
+  const t=$('toast');t.textContent=msg;t.classList.add('show');
+  clearTimeout(_toastTimer);_toastTimer=setTimeout(()=>t.classList.remove('show'),dur);
+}
+function a2css(c){
+  if(!c||c.length<7)return c||'transparent';
+  if(c.startsWith('#')&&c.length===9){
+    const r=parseInt(c.slice(1,3),16),g=parseInt(c.slice(3,5),16),
+          b=parseInt(c.slice(5,7),16),a=parseInt(c.slice(7,9),16)/255;
+    return `rgba(${r},${g},${b},${a.toFixed(3)})`;
+  }
+  return c;
+}
+function hex2rgba(c){
+  c=(c||'#ffffffff').replace('#','');
+  if(c.length===6)return{r:parseInt(c.slice(0,2),16),g:parseInt(c.slice(2,4),16),b:parseInt(c.slice(4,6),16),a:255};
+  if(c.length===8)return{r:parseInt(c.slice(0,2),16),g:parseInt(c.slice(2,4),16),b:parseInt(c.slice(4,6),16),a:parseInt(c.slice(6,8),16)};
+  return{r:255,g:255,b:255,a:255};
+}
+function rgba2hex(r,g,b,a=255){return '#'+[r,g,b,a].map(v=>Math.round(v).toString(16).padStart(2,'0')).join('');}
+function pickerVal(c){const{r,g,b}=hex2rgba(c);return '#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');}
+function getAlpha(c){return hex2rgba(c).a;}
+function genId(){return 'el_'+(nid++);}
+function nextZ(){return nz++;}
+function sLabel(key){return(SEN[key]||{l:key}).l;}
+function pVal(key){
+  // Time types return formatted strings
+  if(key==='CLOCK')return'12:34 PM';
+  if(key==='DATE')return'16-06-2026';
+  if(key==='WEEKDAY')return'Tuesday';
+  const v=(SEN[key]||{s:'0'}).s;
+  return typeof v==='number'?String(v):v;
+}
+const TIME_KEYS=new Set(['CLOCK','CLOCKSEC','DATE','WEEKDAY']);
+const isTimeEl=el=>TIME_KEYS.has(el.type)||TIME_KEYS.has(el.sensorKey);
+
+// ── PALETTE ───────────────────────────────────────────────────────────────────
+const CATS=[
+  {id:'time',        label:'⏱ Time & Date'},
+  {id:'cpu',         label:'🖥 CPU'},
+  {id:'gpu',         label:'🎮 GPU'},
+  {id:'ram',         label:'🧠 RAM'},
+  {id:'storage',     label:'💾 Storage'},
+  {id:'motherboard', label:'🔌 Motherboard'},
+  {id:'network',     label:'🌐 Network'},
+  {id:'framerate',   label:'🎯 Framerate'},
+  {id:'system',      label:'⚙ System'},
+  {id:'_static',     label:'✏ Static / Decorative'},
+];
+const DEFAULT_OPEN_CATS=new Set(['time','cpu','gpu','ram','storage','motherboard','network','framerate','_static']);
+
+function buildPalette(){
+  const el=$('elist');el.innerHTML='';
+  for(const cat of CATS){
+    const grp=document.createElement('div');
+    grp.className='egrp';grp.dataset.cat=cat.id;
+    if(!DEFAULT_OPEN_CATS.has(cat.id))grp.classList.add('collapsed');
+
+    const title=document.createElement('div');
+    title.className='egtitle';
+    title.innerHTML=`<span class="egarrow">▾</span>${cat.label}`;
+    title.onclick=()=>grp.classList.toggle('collapsed');
+    grp.appendChild(title);
+
+    const items=document.createElement('div');items.className='egrp-items';
+
+    if(cat.id==='_static'){
+      items.appendChild(makeEi('static','','','Static Label','Custom text','ic-s','_static'));
+      items.appendChild(makeEi('rect','','','Rectangle','Divider / block','ic-d','_static'));
+    } else {
+      for(const [key,s] of Object.entries(SEN).filter(([k,v])=>v.cat===cat.id)){
+        if(!visibleSensors.has(key))continue;
+        const isFull=FULL_PALETTE_KEYS.has(key);
+        // Always show text value
+        items.appendChild(makeEi('text',key,s.u,s.l+' Value','→ text','ic-t',cat.id));
+        // Show bar/ring/graph only for key sensors or time
+        if(isFull&&s.max!==null){
+          items.appendChild(makeEi('bar',key,'',s.l+' Bar','→ bar','ic-b',cat.id));
+          items.appendChild(makeEi('ring',key,'',s.l+' Ring','→ ring','ic-r',cat.id));
+        }
+        if(isFull&&typeof s.s==='number')
+          items.appendChild(makeEi('linegraph',key,'',s.l+' Graph','→ graph','ic-l',cat.id));
+        // Preset only for sensors with a max value
+        if(s.max!==null||typeof s.s==='number')
+          items.appendChild(makeEi('preset',key,s.u,s.l+' Label','→ label','ic-p',cat.id));
+      }
+    }
+
+    // Hide group entirely if no visible items (except static)
+    if(cat.id!=='_static'){
+      const hasItems=Object.values(SEN).some(v=>v.cat===cat.id&&visibleSensors.has(
+        Object.keys(SEN).find(k=>SEN[k]===v)));
+      // We check after appending
+    }
+
+    grp.appendChild(items);el.appendChild(grp);
+  }
+  // Hide groups that have no items
+  document.querySelectorAll('.egrp').forEach(g=>{
+    if(g.dataset.cat==='_static')return;
+    const has=g.querySelector('.ei');
+    g.classList.toggle('hidden-grp',!has);
+  });
+}
+
+function makeEi(type,key,unit,label,sub,iconCls,cat){
+  const div=document.createElement('div');
+  div.className='ei';div.draggable=true;
+  div.dataset.cat=cat;div.dataset.label=(label+' '+(sub||'')).toLowerCase();
+  const ico=iconCls==='ic-b'?'▬':iconCls==='ic-r'?'○':iconCls==='ic-l'?'〜':iconCls==='ic-t'?'V':iconCls==='ic-s'||iconCls==='ic-p'?'T':'·';
+  div.innerHTML=`<div class="eico ${iconCls}">${ico}</div><div><div class="elabel">${label}</div>${sub?`<div class="esub">${sub}</div>`:''}</div>`;
+  div.addEventListener('dragstart',e=>{palDrag={type,key,unit,isPreset:type==='preset'};e.dataTransfer.effectAllowed='copy';e.dataTransfer.setData('text/plain','pal');});
+  div.addEventListener('click',()=>add(type,key,unit,null,null,type==='preset'));
+  return div;
+}
+
+function filterElements(q){
+  q=q.toLowerCase().trim();
+  document.querySelectorAll('.ei').forEach(ei=>{
+    ei.classList.toggle('hidden',q?!ei.dataset.label.includes(q):false);
+  });
+  document.querySelectorAll('.egrp').forEach(g=>{
+    if(!q){g.classList.remove('hidden-grp');return;}
+    const vis=[...g.querySelectorAll('.ei')].some(e=>!e.classList.contains('hidden'));
+    g.classList.toggle('hidden-grp',!vis);
+    if(vis)g.classList.remove('collapsed');
+  });
+}
+
+// ── SENSOR PICKER MODAL ───────────────────────────────────────────────────────
+function openSensorPicker(){
+  const m=document.createElement('div');m.className='mbg';
+  const cats=Object.entries(SEN).reduce((acc,[k,v])=>{
+    if(!acc[v.cat])acc[v.cat]=[];acc[v.cat].push(k);return acc;
+  },{});
+  const catLabel={
+    'time':'⏱ Time & Date','cpu':'🖥 CPU','gpu':'🎮 GPU','ram':'🧠 RAM',
+    'storage':'💾 Storage','motherboard':'🔌 Motherboard','network':'🌐 Network',
+    'framerate':'🎯 Framerate','system':'⚙ System','devicenames':'🖥 Device Names',
+    'fans':'🌡 Fans & MOBO', // legacy fallback for older imported sensor files
+  };
+  let html='';
+  for(const[cat,keys]of Object.entries(cats)){
+    html+=`<div class="sen-cat-title">${catLabel[cat]||cat}</div>`;
+    for(const k of keys){
+      html+=`<div class="sen-item"><input type="checkbox" id="sc_${k}" value="${k}" ${visibleSensors.has(k)?'checked':''}><label for="sc_${k}">${SEN[k].l}</label></div>`;
+    }
+  }
+  m.innerHTML=`<div class="modal" style="max-width:520px;display:flex;flex-direction:column;max-height:80vh;padding-bottom:0">
+    <h2 style="flex-shrink:0">&#xff0b; Sensor Palette</h2>
+    <p style="font-size:11px;color:var(--muted);margin-bottom:10px;flex-shrink:0">Choose which sensors appear in the element palette.</p>
+    <div style="display:flex;gap:8px;margin-bottom:8px;flex-shrink:0">
+      <button class="btn" style="font-size:11px" onclick="document.querySelectorAll('.sen-item input').forEach(i=>i.checked=true)">All</button>
+      <button class="btn" style="font-size:11px" onclick="document.querySelectorAll('.sen-item input').forEach(i=>i.checked=false)">None</button>
+    </div>
+    <div class="sen-grid" style="overflow-y:auto;flex:1;min-height:0">${html}</div>
+    <div class="mbtns" style="flex-shrink:0;border-top:1px solid var(--border);padding:12px 0 16px">
+      <button class="btn" onclick="this.closest('.mbg').remove()">Cancel</button>
+      <button class="btn primary" onclick="saveSensorPicker(this.closest('.mbg'))">Apply</button>
+    </div>
+  </div>`;
+  document.body.appendChild(m);
+}
+
+function saveSensorPicker(mbg){
+  visibleSensors=new Set([...mbg.querySelectorAll('.sen-item input:checked')].map(i=>i.value));
+  // Always keep static types
+  mbg.remove();buildPalette();toast('Palette updated');
+}
+
+// ── ORIENTATION & ZOOM ────────────────────────────────────────────────────────
+function setOri(o){
+  ori=o;CW=o==='vertical'?462:1920;CH=o==='vertical'?1920:462;
+  $('btnV').classList.toggle('active',o==='vertical');
+  $('btnH').classList.toggle('active',o==='horizontal');
+  const c=$('canvas');c.style.width=CW+'px';c.style.height=CH+'px';
+  $('ssz').textContent=CW+' × '+CH;applyZoom();
+}
+function chZoom(d){
+  if(d===0){const w=$('cw');zoom=Math.min((w.clientWidth-48)/CW,(w.clientHeight-48)/CH,.99);}
+  else zoom=Math.max(0.05,Math.min(2,zoom+d));
+  zoom=Math.round(zoom*100)/100;applyZoom();
+}
+function applyZoom(){
+  const co=$('co');co.style.transform=`scale(${zoom})`;co.style.transformOrigin='top center';
+  co.style.marginBottom=(CH*zoom-CH)+'px';$('zv').textContent=Math.round(zoom*100)+'%';
+}
+
+// ── BACKGROUND ────────────────────────────────────────────────────────────────
+function loadBack(){
+  pick('image/*,video/mp4,video/x-msvideo,video/x-ms-wmv,.gif,.png,.jpg,.jpeg,.mp4,.avi,.wmv',f=>{
+    const isVid=/\.(mp4|avi|wmv|mov|webm)$/i.test(f.name);
+    backData={file:f,name:f.name,isVideo:isVid};
+    const r=new FileReader();
+    r.onload=e=>{backData.data=e.target.result;showBg(e.target.result,f.name,isVid);};
+    r.readAsDataURL(f);toast('Background: '+f.name);
+  });
+}
+function showBg(url,name,isVid){
+  const img=$('backImg'),vid=$('backVid');
+  if(isVid){img.style.display='none';img.src='';vid.style.display='block';vid.src=url;vid.load();vid.play().catch(()=>{});}
+  else{vid.style.display='none';vid.src='';img.src=url;img.style.display='block';}
+}
+function loadImgLayer(){
+  pick('image/png,image/jpeg,image/gif',f=>{
+    const r=new FileReader();r.onload=e=>{
+      const el={id:genId(),type:'image',data:e.target.result,file:f,filename:f.name,
+        x:0,y:0,w:CW,h:CH,z:nextZ(),visible:true,manualSize:true};
+      addElem(el);toast('Image: '+f.name);
+    };r.readAsDataURL(f);
+  });
+}
+function pick(accept,cb){
+  const i=document.createElement('input');i.type='file';i.accept=accept;
+  i.onchange=e=>{if(e.target.files[0])cb(e.target.files[0]);};i.click();
+}
+
+// ── ADD ELEMENT ───────────────────────────────────────────────────────────────
+let palDrag=null;
+function cwDragOver(e){e.preventDefault();e.dataTransfer.dropEffect='copy';}
+function cwDrop(e){
+  e.preventDefault();if(!palDrag)return;
+  const cr=$('canvas').getBoundingClientRect();
+  add(palDrag.type,palDrag.key,palDrag.unit,
+    Math.round((e.clientX-cr.left)/zoom),
+    Math.round((e.clientY-cr.top)/zoom),palDrag.isPreset);
+  palDrag=null;
+}
+
+function add(type,key,unit,x,y,isPreset){
+  const s=SEN[key]||{};
+  x=x??Math.round(CW*0.1);y=y??Math.round(CH*0.1);
+
+  if(isPreset){
+    // Preset = a static label showing the sensor name, ready to place and style.
+    // Original intent was a quick way to drop a clean label, not a full compound element.
+    const lbl={id:genId(),type:'static',sensorKey:'',x,y,z:nextZ(),visible:true,
+      customText:(s.l||key),w:200,h:28,fontSize:18,fontFamily:'Consolas',
+      color:'#888899ff',bold:false,align:'left',unit:'',manualSize:false};
+    elems.push(lbl);renderEl(lbl);
+    refreshLayers();sel(lbl.id);updStatus();return;
+  }
+
+  const id=genId();const z=nextZ();
+  // Determine the actual type for time-related keys
+  const actualType = key==='CLOCK'?'clock':key==='CLOCKSEC'?'clock':key==='DATE'?'date':key==='WEEKDAY'?'weekday':type;
+  let el={id,type:actualType,sensorKey:key,unit:unit||s.u||'',x,y,z,visible:true,prefix:'',manualSize:false};
+
+  if(['text','static','clock','date','weekday'].includes(actualType)){
+    Object.assign(el,{w:200,h:50,fontSize:32,fontFamily:'Consolas',color:'#ffffffff',bold:false,
+      align:'left',clockFormat:'12h',clockSeconds:key==='CLOCKSEC',dateFormat:'DD-MM-YYYY',
+      weekdayFormat:'full',customText:'Label',manualSize:false});
+  } else if(actualType==='bar'){
+    Object.assign(el,{w:320,h:18,fillColor:'#00b4ffff',borderColor:'#00000000',bgColor:'#1a1a2299',
+      borderThickness:0,cornerRadius:4,maxValue:s.max||100,manualSize:true});
+  } else if(actualType==='ring'){
+    Object.assign(el,{w:180,h:180,ringWidth:14,maxValue:s.max||100,
+      arcColor:'#00b4ffff',trackColor:'#1a1a3399',showLabel:true,
+      labelColor:'#ffffffff',labelFontSize:28,labelFontFamily:'Consolas',labelBold:true,manualSize:true});
+  } else if(actualType==='linegraph'){
+    Object.assign(el,{w:320,h:80,maxValue:s.max||100,lineColor:'#00b4ffff',
+      fillColor:'#00b4ff22',bgColor:'#0a0a1499',lineWidth:2,
+      historySeconds:60,showGrid:true,gridColor:'#ffffff22',cornerRadius:3,manualSize:true});
+  } else if(actualType==='rect'){
+    Object.assign(el,{w:400,h:3,fillColor:'#00b4ff66',cornerRadius:0,manualSize:true});
+  } else if(actualType==='image'){
+    Object.assign(el,{w:CW,h:CH,data:null,filename:'',manualSize:true});
+  }
+  addElem(el);
+}
+function addElem(el){elems.push(el);renderEl(el);refreshLayers();sel(el.id);updStatus();}
+
+// ── RENDER ELEMENT ────────────────────────────────────────────────────────────
+const TEXT_TYPES=new Set(['text','static','clock','date','weekday']);
+
+function renderEl(el){
+  const canvas=$('canvas');
+  let div=document.getElementById(el.id);
+  if(!div){
+    div=document.createElement('div');div.id=el.id;div.className='ce';
+    div.innerHTML='<div class="ei2"></div><div class="rh"></div><div class="lz"></div>';
+    canvas.appendChild(div);
+    makeDrag(div,el);makeResize(div,el);
+    div.addEventListener('click',e=>{e.stopPropagation();sel(el.id);});
+    div.addEventListener('dblclick',e=>{e.stopPropagation();if(el.type==='static')promptRename(el);});
+  }
+
+  const isText=TEXT_TYPES.has(el.type);
+  // autosize: text that hasn't been manually resized
+  const autosize=isText&&!el.manualSize;
+
+  div.style.left=el.x+'px';div.style.top=el.y+'px';
+  div.style.zIndex=el.z+10;div.style.display=el.visible?'':'none';
+  if(el.type!=='image')div.style.pointerEvents='';
+
+  if(autosize){
+    div.classList.add('autosize');div.classList.remove('fixed');
+    // Clear any inline size so the span drives the div via RO
+    div.style.width='';div.style.height='';
+  } else {
+    div.classList.remove('autosize');div.classList.add('fixed');
+    div.style.width=el.w+'px';div.style.height=el.h+'px';
+  }
+  div.querySelector('.lz').textContent='z:'+el.z;
+  const inner=div.querySelector('.ei2');
+
+  // ── Text/clock/date/weekday ─────────────────────────────────────────────
+  if(isText){
+    let txt='';
+    if(el.type==='clock'){
+      const fmt=el.clockFormat||'12h',secs=el.clockSeconds!==false;
+      // With seconds: zero-padded (stable). Without: no leading zero.
+      txt=fmt==='12h'?(secs?'09:34:56 PM':'9:34 PM'):(secs?'14:34:56':'14:34');
+    } else if(el.type==='date'){
+      const fmt=el.dateFormat||'DD-MM-YYYY';
+      txt=fmt.replace('MMMM','June').replace('MMM','Jun').replace('MM','06').replace('DD','16').replace('YYYY','2026').replace('YY','26');
+    } else if(el.type==='weekday'){
+      txt=el.weekdayFormat==='short'?'Tue':'Tuesday';
+    } else if(el.type==='static'){
+      txt=el.customText||'Label';
+    } else {
+      // sensor text
+      txt=(el.prefix||'')+pVal(el.sensorKey)+((el.unit)?(' '+el.unit):'');
+    }
+    const ss=`font-size:${el.fontSize||32}px;font-family:'${el.fontFamily||'Consolas'}',monospace,sans-serif;color:${a2css(el.color||'#ffffffff')};font-weight:${el.bold?700:400};white-space:nowrap;line-height:1.15;display:inline-block`;
+    if(autosize){
+      inner.style.cssText='position:absolute;top:0;left:0;white-space:nowrap;overflow:visible';
+      inner.innerHTML=`<span style="${ss}">${txt}</span>`;
+      // Observe the SPAN (not the div) so we track its natural rendered size
+      if(div._ro){div._ro.disconnect();div._ro=null;}
+      const span=inner.querySelector('span');
+      div._ro=new ResizeObserver(()=>{
+        if(!div.isConnected||!span)return;
+        const w=Math.ceil(span.offsetWidth)||1;
+        const h=Math.ceil(span.offsetHeight)||1;
+        div.style.width=w+'px';
+        div.style.height=h+'px';
+        el.w=w; el.h=h;
+        updSizeInputs(el);
+      });
+      div._ro.observe(span);
+    } else {
+      inner.style.cssText=`overflow:hidden;display:block`;
+      inner.innerHTML=`<span style="${ss};text-align:${el.align||'left'};display:block;max-width:${el.w}px;overflow:hidden">${txt}</span>`;
+    }
+    return;
+  }
+
+  // ── Non-text ──────────────────────────────────────────────────────────────
+  inner.style.cssText='width:100%;height:100%;overflow:hidden;display:block';
+
+  if(el.type==='bar'){
+    const pct=Math.min(100,(parseFloat(pVal(el.sensorKey))/(el.maxValue||100))*100)||42;
+    const rad=el.cornerRadius||0;
+    const style=el.barStyle||'solid';
+    if(style==='segmented'){
+      const segs=el.segmentCount||12;
+      const gapPct=el.segmentGap!=null?el.segmentGap:18; // % of each segment width used as gap
+      const litCount=Math.round((pct/100)*segs);
+      const segW=100/segs;
+      let segHtml='';
+      for(let i=0;i<segs;i++){
+        const lit=i<litCount;
+        const segLeft=i*segW;
+        const segWInner=segW*(1-gapPct/100);
+        segHtml+=`<div style="position:absolute;left:${segLeft.toFixed(2)}%;top:0;width:${segWInner.toFixed(2)}%;height:100%;background:${lit?a2css(el.fillColor):a2css(el.bgColor)};border-radius:${Math.min(rad,3)}px"></div>`;
+      }
+      inner.innerHTML=`<div style="position:relative;width:100%;height:100%;overflow:hidden">${segHtml}</div>`;
+    } else if(style==='gapped'){
+      const segs=el.segmentCount||16;
+      const gapW=Math.max(1,el.segmentGap||2); // px gap width for this style
+      inner.innerHTML=`<div style="width:100%;height:100%;background:${a2css(el.bgColor)};border-radius:${rad}px;overflow:hidden;position:relative;${el.borderThickness?`border:${el.borderThickness}px solid ${a2css(el.borderColor)}`:''}">
+        <div style="width:${pct}%;height:100%;background:${a2css(el.fillColor)};border-radius:${rad}px 0 0 ${rad}px"></div>
+        <div style="position:absolute;top:0;left:0;width:100%;height:100%;background-image:repeating-linear-gradient(90deg,transparent 0,transparent calc(100%/${segs} - ${gapW}px),${a2css(el.bgColor)} calc(100%/${segs} - ${gapW}px),${a2css(el.bgColor)} calc(100%/${segs}))"></div>
+      </div>`;
+    } else {
+      inner.innerHTML=`<div style="width:100%;height:100%;background:${a2css(el.bgColor)};border-radius:${rad}px;overflow:hidden;${el.borderThickness?`border:${el.borderThickness}px solid ${a2css(el.borderColor)}`:''}">
+        <div style="width:${pct}%;height:100%;background:${a2css(el.fillColor)};border-radius:${rad}px 0 0 ${rad}px"></div></div>`;
+    }
+
+  } else if(el.type==='ring'){
+    const raw=parseFloat(pVal(el.sensorKey))||0;
+    const pct=Math.min(1,raw/(el.maxValue||100));
+    const diam=Math.min(el.w,el.h),rw=el.ringWidth||14;
+    const r=Math.max(4,diam/2-rw/2),circ=2*Math.PI*r;
+    const cx=el.w/2,cy=el.h/2;
+    const labelVal=Number.isInteger(raw)?raw:raw.toFixed(1);
+    const lbl=el.showLabel?`<text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="central" fill="${a2css(el.labelColor||'#ffffffff')}" font-size="${el.labelFontSize||28}" font-family="${el.labelFontFamily||'Consolas'}" font-weight="${el.labelBold?700:400}">${labelVal}${el.unit||''}</text>`:'';
+    const ringStyle=el.ringStyle||'solid';
+
+    if(ringStyle==='segmented'){
+      // Discrete arc blocks around the full circle; lit ones use arcColor, unlit use trackColor
+      const segs=el.segmentCount||24;
+      const gapDeg=el.segmentGap!=null?el.segmentGap:6; // degrees of gap between segments
+      const segDeg=360/segs;
+      const arcDeg=segDeg-gapDeg;
+      const litCount=Math.round(pct*segs);
+      let segPaths='';
+      const describeArc=(startDeg,endDeg)=>{
+        const toRad=d=>(d-90)*Math.PI/180;
+        const x1=cx+r*Math.cos(toRad(startDeg)),y1=cy+r*Math.sin(toRad(startDeg));
+        const x2=cx+r*Math.cos(toRad(endDeg)),y2=cy+r*Math.sin(toRad(endDeg));
+        const large=endDeg-startDeg>180?1:0;
+        return `M ${x1.toFixed(2)} ${y1.toFixed(2)} A ${r.toFixed(2)} ${r.toFixed(2)} 0 ${large} 1 ${x2.toFixed(2)} ${y2.toFixed(2)}`;
+      };
+      for(let i=0;i<segs;i++){
+        const startDeg=i*segDeg+gapDeg/2;
+        const endDeg=startDeg+arcDeg;
+        const lit=i<litCount;
+        const color=lit?a2css(el.arcColor||'#00b4ffff'):a2css(el.trackColor||'#1a1a3399');
+        segPaths+=`<path d="${describeArc(startDeg,endDeg)}" fill="none" stroke="${color}" stroke-width="${rw}" stroke-linecap="${el.segmentCap==='round'?'round':'butt'}"/>`;
+      }
+      inner.innerHTML=`<svg width="${el.w}" height="${el.h}" viewBox="0 0 ${el.w} ${el.h}" style="display:block">
+        ${segPaths}${lbl}</svg>`;
+    } else {
+      inner.innerHTML=`<svg width="${el.w}" height="${el.h}" viewBox="0 0 ${el.w} ${el.h}" style="display:block">
+        <circle cx="${cx}" cy="${cy}" r="${r.toFixed(1)}" fill="none" stroke="${a2css(el.trackColor||'#1a1a3399')}" stroke-width="${rw}"/>
+        <circle cx="${cx}" cy="${cy}" r="${r.toFixed(1)}" fill="none" stroke="${a2css(el.arcColor||'#00b4ffff')}" stroke-width="${rw}" stroke-dasharray="${(circ*pct).toFixed(1)} ${circ.toFixed(1)}" stroke-linecap="round" transform="rotate(-90 ${cx} ${cy})"/>
+        ${lbl}</svg>`;
+    }
+
+  } else if(el.type==='linegraph'){
+    const n=40,W=el.w,H=el.h;
+    const series=[
+      {key:el.sensorKey, color:el.lineColor||'#00b4ffff', fillColor:el.fillColor||'#00b4ff22', max:el.maxValue||100, axis:'left'},
+    ];
+    if(el.sensorKey2) series.push({key:el.sensorKey2, color:el.lineColor2||'#ff3df0ff', max:el.maxValue2||100, axis:'right'});
+    if(el.sensorKey3) series.push({key:el.sensorKey3, color:el.lineColor3||'#5effc0ff', max:el.maxValue2||100, axis:'right'});
+
+    const grid=el.showGrid?[1,2,3,4].map(i=>{const gy=H*i/5;return `<line x1="0" y1="${gy.toFixed(0)}" x2="${W}" y2="${gy.toFixed(0)}" stroke="${a2css(el.gridColor||'#ffffff22')}" stroke-width="1"/>`;}).join(''):'';
+
+    let paths='';
+    series.forEach((s,si)=>{
+      const base=parseFloat(pVal(s.key))||50;
+      const seed=si*7+1; // vary the preview waveform per series so they're visually distinct
+      const pts=Array.from({length:n},(_,i)=>Math.min(s.max,Math.max(0,base+Math.sin(i*.35+seed)*15+Math.cos(i*.21+seed)*6)));
+      const xs=i=>i/(n-1)*W, ys=v=>H-((v/s.max)*H*0.88+H*0.06);
+      const path='M '+pts.map((v,i)=>`${xs(i).toFixed(1)},${ys(v).toFixed(1)}`).join(' L ');
+      if(si===0 && s.fillColor){
+        const fill=path+` L ${W},${H} L 0,${H} Z`;
+        paths+=`<path d="${fill}" fill="${a2css(s.fillColor)}" stroke="none"/>`;
+      }
+      paths+=`<path d="${path}" fill="none" stroke="${a2css(s.color)}" stroke-width="${el.lineWidth||2}" stroke-linejoin="round" stroke-linecap="round"/>`;
+    });
+
+    inner.innerHTML=`<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="display:block;border-radius:${el.cornerRadius||3}px">
+      <rect width="${W}" height="${H}" fill="${a2css(el.bgColor||'#0a0a1499')}"/>
+      ${grid}${paths}</svg>`;
+
+  } else if(el.type==='rect'){
+    inner.innerHTML=`<div style="width:100%;height:100%;background:${a2css(el.fillColor||'#00b4ff66')};border-radius:${el.cornerRadius||0}px"></div>`;
+
+  } else if(el.type==='image'){
+    div.style.pointerEvents='none';
+    if(el.data){inner.innerHTML=`<img src="${el.data}" style="width:100%;height:100%;object-fit:cover;display:block;pointer-events:none">`;}
+    else{inner.innerHTML=`<div class="iph">📷<span>${el.filename||'image'}</span></div>`;}
+  }
+}
+
+// ── DRAG ──────────────────────────────────────────────────────────────────────
+function makeDrag(div,el){
+  div.addEventListener('mousedown',e=>{
+    if(e.target.classList.contains('rh')||e.button!==0)return;
+    e.preventDefault();sel(el.id);
+    const ox=e.clientX,oy=e.clientY,ex=el.x,ey=el.y;
+    const mm=e2=>{
+      let nx=Math.round(ex+(e2.clientX-ox)/zoom);
+      let ny=Math.round(ey+(e2.clientY-oy)/zoom);
+      if(snapEnabled){const s=doSnap(nx,ny,el.w||0,el.h||0,el.id);nx=s.x;ny=s.y;}
+      el.x=nx;el.y=ny;div.style.left=nx+'px';div.style.top=ny+'px';updPosInputs(el);
+    };
+    const mu=()=>{hideSnaps();document.removeEventListener('mousemove',mm);document.removeEventListener('mouseup',mu);};
+    document.addEventListener('mousemove',mm);document.addEventListener('mouseup',mu);
+  });
+}
+
+// ── RESIZE ────────────────────────────────────────────────────────────────────
+function makeResize(div,el){
+  const rh=div.querySelector('.rh');
+  rh.addEventListener('mousedown',e=>{
+    e.stopPropagation();e.preventDefault();
+
+    const isTextEl=TEXT_TYPES.has(el.type);
+
+    // For text: drag scales font size. For others: drag scales w/h.
+    if(isTextEl){
+      // For text: drag scales font size. RO on the span keeps div sized correctly.
+      if(div._ro){div._ro.disconnect();div._ro=null;}
+      const startFont=el.fontSize||32;
+      const ox=e.clientX,oy=e.clientY;
+
+      // Re-attach RO now so it tracks size throughout the drag
+      const span=div.querySelector('span');
+      if(span){
+        div._ro=new ResizeObserver(()=>{
+          if(!div.isConnected||!span)return;
+          const w=Math.ceil(span.offsetWidth)||1;
+          const h=Math.ceil(span.offsetHeight)||1;
+          div.style.width=w+'px';
+          div.style.height=h+'px';
+          el.w=w; el.h=h;
+          updSizeInputs(el);
+        });
+        div._ro.observe(span);
+      }
+
+      const mm=e2=>{
+        const dx=(e2.clientX-ox)/zoom,dy=(e2.clientY-oy)/zoom;
+        el.fontSize=Math.max(6,Math.round(startFont+(dx+dy)/2));
+        // Update span font size — RO will fire and sync div size automatically
+        if(span) span.style.fontSize=el.fontSize+'px';
+        updSizeInputs(el);
+      };
+      const mu=()=>{
+        // Full re-render on release to persist font size properly
+        renderEl(el);
+        if(selId===el.id) renderProps(el);
+        document.removeEventListener('mousemove',mm);
+        document.removeEventListener('mouseup',mu);
+      };
+      document.addEventListener('mousemove',mm);
+      document.addEventListener('mouseup',mu);
+
+    } else {
+      // Non-text: resize w/h
+      if(div._ro){div._ro.disconnect();div._ro=null;}
+      const startW=Math.ceil(div.offsetWidth)||el.w||100;
+      const startH=Math.ceil(div.offsetHeight)||el.h||30;
+      el.w=startW; el.h=startH;
+      el.manualSize=true;
+      div.classList.remove('autosize');div.classList.add('fixed');
+      div.style.width=startW+'px';div.style.height=startH+'px';
+
+      const ox=e.clientX,oy=e.clientY;
+      const mm=e2=>{
+        const dx=(e2.clientX-ox)/zoom,dy=(e2.clientY-oy)/zoom;
+        if(el.type==='ring'){
+          const d=Math.max(dx,dy);
+          el.w=Math.max(20,Math.round(startW+d));el.h=el.w;
+        } else {
+          el.w=Math.max(10,Math.round(startW+dx));
+          el.h=Math.max(4,Math.round(startH+dy));
+        }
+        div.style.width=el.w+'px';div.style.height=el.h+'px';
+        updSizeInputs(el);
+      };
+      const mu=()=>{
+        renderEl(el);
+        if(selId===el.id) renderProps(el);
+        document.removeEventListener('mousemove',mm);
+        document.removeEventListener('mouseup',mu);
+      };
+      document.addEventListener('mousemove',mm);
+      document.addEventListener('mouseup',mu);
+    }
+  });
+}
+
+// ── SNAP ──────────────────────────────────────────────────────────────────────
+function doSnap(x,y,w,h,skipId){
+  const T=8/zoom,cx=x+w/2,cy=y+h/2,rx=x+w,ry=y+h;
+  let bx=x,by=y,sH=null,sV=null;
+  const pts=[{x:CW/2},{x:0},{x:CW},{y:CH/2},{y:0},{y:CH}];
+  for(const o of elems.filter(e=>e.id!==skipId&&e.visible)){
+    const ow=o.w||0,oh=o.h||0;
+    pts.push({x:o.x},{x:o.x+ow/2},{x:o.x+ow},{y:o.y},{y:o.y+oh/2},{y:o.y+oh});
+  }
+  for(const p of pts){
+    if(p.x!==undefined){
+      if(Math.abs(x-p.x)<T){bx=p.x;sV=p.x;}
+      else if(Math.abs(cx-p.x)<T){bx=p.x-w/2;sV=p.x;}
+      else if(Math.abs(rx-p.x)<T){bx=p.x-w;sV=p.x;}
+    }
+    if(p.y!==undefined){
+      if(Math.abs(y-p.y)<T){by=p.y;sH=p.y;}
+      else if(Math.abs(cy-p.y)<T){by=p.y-h/2;sH=p.y;}
+      else if(Math.abs(ry-p.y)<T){by=p.y-h;sH=p.y;}
+    }
+  }
+  const sh=$('snapH'),sv=$('snapV');
+  if(sH!==null){sh.style.top=sH+'px';sh.classList.add('show');}else sh.classList.remove('show');
+  if(sV!==null){sv.style.left=sV+'px';sv.classList.add('show');}else sv.classList.remove('show');
+  return{x:Math.round(bx),y:Math.round(by)};
+}
+function hideSnaps(){$('snapH').classList.remove('show');$('snapV').classList.remove('show');}
+
+// ── SELECT ────────────────────────────────────────────────────────────────────
+function sel(id){
+  document.querySelectorAll('.ce').forEach(d=>d.classList.remove('sel'));
+  document.querySelectorAll('.lr').forEach(r=>r.classList.remove('active'));
+  selId=id;
+  if(!id){renderProps(null);updStatus();return;}
+  const div=document.getElementById(id);if(div)div.classList.add('sel');
+  const lr=document.querySelector(`.lr[data-id="${id}"]`);if(lr)lr.classList.add('active');
+  renderProps(elems.find(e=>e.id===id));updStatus();
+}
+function desel(e){if(e.target.id==='cw'||e.target.id==='co'||e.target.id==='canvas')sel(null);}
+function delSel(){
+  if(!selId)return;
+  elems=elems.filter(e=>e.id!==selId);
+  const d=document.getElementById(selId);if(d)d.remove();
+  selId=null;refreshLayers();renderProps(null);updStatus();toast('Deleted');
+}
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT'||e.target.tagName==='TEXTAREA')return;
+  if(e.key==='Delete'||e.key==='Backspace')delSel();
+  if(e.key==='Escape')sel(null);
+  if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)&&selId){
+    e.preventDefault();
+    const el=elems.find(x=>x.id===selId);if(!el)return;
+    const d=e.shiftKey?10:1;
+    if(e.key==='ArrowLeft')el.x-=d;if(e.key==='ArrowRight')el.x+=d;
+    if(e.key==='ArrowUp')el.y-=d;if(e.key==='ArrowDown')el.y+=d;
+    document.getElementById(selId).style.left=el.x+'px';
+    document.getElementById(selId).style.top=el.y+'px';updPosInputs(el);
+  }
+});
+function promptRename(el){
+  const v=prompt('Label text:',el.customText||'');
+  if(v!==null){el.customText=v;renderEl(el);if(selId===el.id)renderProps(el);}
+}
+
+// ── PROPERTIES ────────────────────────────────────────────────────────────────
+function sp(prop,val,re=true){
+  const el=elems.find(e=>e.id===selId);if(!el)return;
+  el[prop]=val;if(re)renderEl(el);
+  if(prop==='x')document.getElementById(selId).style.left=val+'px';
+  if(prop==='y')document.getElementById(selId).style.top=val+'px';
+  if(prop==='w'){document.getElementById(selId).style.width=val+'px';el.manualSize=true;document.getElementById(selId).classList.remove('autosize');document.getElementById(selId).classList.add('fixed');}
+  if(prop==='h'){document.getElementById(selId).style.height=val+'px';el.manualSize=true;}
+  if(prop==='z'){document.getElementById(selId).style.zIndex=val+10;refreshLayers();}
+}
+function updPosInputs(el){
+  if(selId!==el.id)return;
+  const px=document.getElementById('px'),py=document.getElementById('py');
+  if(px){px.value=Math.round(el.x);py.value=Math.round(el.y);}
+}
+function updSizeInputs(el){
+  if(selId!==el.id)return;
+  const pw=document.getElementById('pw'),ph=document.getElementById('ph');
+  if(pw){pw.value=Math.round(el.w);ph.value=Math.round(el.h);}
+}
+function setColor(field,hexRgb){
+  const el=elems.find(e=>e.id===selId);if(!el)return;
+  const a=getAlpha(el[field]||'#ffffffff');
+  const r=parseInt(hexRgb.slice(1,3),16),g=parseInt(hexRgb.slice(3,5),16),b=parseInt(hexRgb.slice(5,7),16);
+  el[field]=rgba2hex(r,g,b,a);renderEl(el);
+}
+function setAlpha(field,a){
+  const el=elems.find(e=>e.id===selId);if(!el)return;
+  const{r,g,b}=hex2rgba(el[field]||'#ffffffff');
+  el[field]=rgba2hex(r,g,b,Math.max(0,Math.min(255,a)));renderEl(el);
+}
+function applyColor(field,tc){
+  const el=elems.find(e=>e.id===selId);if(!el)return;
+  el[field]=tc;renderEl(el);renderProps(el);
+}
+function saveColor(c){
+  if(!c||c==='undefined')return;
+  if(!themeColors.includes(c))themeColors=[...themeColors.slice(-11),c];
+  toast('Color saved to palette');renderProps(elems.find(e=>e.id===selId));
+}
+function palRow(field,el){
+  return themeColors.map(tc=>`<div class="swatch" title="${tc}" style="background:${a2css(tc)}" onclick="applyColor('${field}','${tc}')"></div>`).join('');
+}
+function colorBlock(field,label,el){
+  const hex=pickerVal(el[field]||'#ffffff'),alpha=getAlpha(el[field]||'#ffffffff');
+  return `<div class="ps"><div class="pt">${label}</div>
+  <div class="pr"><label>Color</label>
+    <input type="color" value="${hex}" onchange="setColor('${field}',this.value)">
+    <input type="number" min="0" max="255" style="width:48px" value="${alpha}" title="Alpha" onchange="setAlpha('${field}',+this.value)">
+    <button class="pr-btn" onclick="saveColor('${el[field]||''}')" title="Save to palette">+</button>
+  </div>
+  <div class="pr"><label></label><div class="palette-row">${palRow(field,el)}</div></div></div>`;
+}
+function fontBlock(el){
+  const builtIn=['Consolas','Arial','Segoe UI','Courier New','Tahoma','Verdana','Impact','Georgia'];
+  const allFonts=[...new Set([...builtIn,...systemFonts,...Object.keys(fontFiles)])].sort();
+  const opts=allFonts.map(f=>`<option value="${f}" ${f===el.fontFamily?'selected':''}>${f}</option>`).join('');
+  return `<div class="ps"><div class="pt">Font</div>
+  <div class="pr"><label>Family</label><select id="fontSel" onchange="sp('fontFamily',this.value,true)">${opts}</select></div>
+  <div class="pr"><label></label>
+    <input type="text" id="fontCustom" value="${el.fontFamily||'Consolas'}" placeholder="Type font name" style="flex:1;background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:3px;font-size:11px" onchange="sp('fontFamily',this.value,true);const s=document.getElementById('fontSel');if(s)s.value=this.value">
+  </div>
+  <div class="pr"><label></label>
+    <button class="pr-btn" onclick="loadSystemFonts()" title="Load fonts installed on this PC (Chrome/Edge only)">🔍 System Fonts</button>
+    <button class="pr-btn" onclick="loadFontFile()" title="Load a .ttf or .otf font file">📁 Font File…</button>
+  </div>
+  <div class="pr"><label>Size px</label><input type="number" value="${el.fontSize||32}" onchange="sp('fontSize',+this.value,true)" min="6" max="500"></div>
+  <div class="pr"><label>Bold</label><input type="checkbox" ${el.bold?'checked':''} onchange="sp('bold',this.checked,true)"></div>
+  <div class="pr"><label>Align</label><select onchange="sp('align',this.value,true)">${['left','center','right'].map(a=>`<option value="${a}" ${(el.align||'left')===a?'selected':''}>${a[0].toUpperCase()+a.slice(1)}</option>`).join('')}</select></div>
+  </div>`;
+}
+function alignBlock(){
+  return `<div class="ps"><div class="pt">Alignment</div>
+  <div class="pr"><label>Horizontal</label>
+    <button class="pr-btn" onclick="snapH('left')">⇤ L</button>
+    <button class="pr-btn" onclick="snapH('center')">↔ Ctr</button>
+    <button class="pr-btn" onclick="snapH('right')">⇥ R</button>
+  </div>
+  <div class="pr"><label>Vertical</label>
+    <button class="pr-btn" onclick="snapV('top')">⇡ Top</button>
+    <button class="pr-btn" onclick="snapV('mid')">↕ Mid</button>
+    <button class="pr-btn" onclick="snapV('bottom')">⇣ Bot</button>
+  </div>
+  <div class="pr"><label>Snap drag</label><input type="checkbox" ${snapEnabled?'checked':''} onchange="snapEnabled=this.checked"></div>
+  </div>`;
+}
+
+function renderProps(el){
+  const pc=$('pc');
+  if(!el){pc.innerHTML='<div class="pe">Select an element<br>to edit its properties.</div>';return;}
+
+  let h=`<div class="ps"><div class="pt">Position &amp; Size</div>
+  <div class="pr"><label>X</label><input type="number" id="px" value="${Math.round(el.x)}" onchange="sp('x',+this.value,false)"></div>
+  <div class="pr"><label>Y</label><input type="number" id="py" value="${Math.round(el.y)}" onchange="sp('y',+this.value,false)"></div>
+  <div class="pr"><label>Width</label><input type="number" id="pw" value="${Math.round(el.w||0)}" onchange="sp('w',+this.value,true)"></div>
+  <div class="pr"><label>Height</label><input type="number" id="ph" value="${Math.round(el.h||0)}" onchange="sp('h',+this.value,true)"></div>
+  <div class="pr"><label>Z-Order</label><input type="number" value="${el.z}" onchange="sp('z',+this.value,false)"></div>
+  </div>`+alignBlock()+`<div class="ps"><div class="pt">Visibility</div>
+  <div class="pr"><label>Visible</label><input type="checkbox" ${el.visible?'checked':''} onchange="sp('visible',this.checked,false);document.getElementById('${el.id}').style.display=el.visible?'':'none'"></div>
+  </div>`;
+
+  if(el.type==='clock'){
+    h+=`<div class="ps"><div class="pt">Clock</div>
+    <div class="pr"><label>Format</label><select onchange="sp('clockFormat',this.value,true)">
+      <option value="12h" ${el.clockFormat==='12h'?'selected':''}>12-hour (AM/PM)</option>
+      <option value="24h" ${el.clockFormat==='24h'?'selected':''}>24-hour</option>
+    </select></div>
+    <div class="pr"><label>Seconds</label><input type="checkbox" ${el.clockSeconds!==false?'checked':''} onchange="sp('clockSeconds',this.checked,true)"></div>
+    </div>`;
+    h+=fontBlock(el)+colorBlock('color','Text Color',el);
+  } else if(el.type==='date'){
+    const fmts=['DD-MM-YYYY','MM-DD-YYYY','YYYY-MM-DD','DD/MM/YYYY','MM/DD/YYYY','DD.MM.YYYY','MMMM DD, YYYY','DD MMMM YYYY'];
+    h+=`<div class="ps"><div class="pt">Date Format</div>
+    <div class="pr"><label>Preset</label><select onchange="sp('dateFormat',this.value,true);document.getElementById('dfmt').value=this.value">
+      ${fmts.map(f=>`<option value="${f}" ${f===el.dateFormat?'selected':''}>${f}</option>`).join('')}
+    </select></div>
+    <div class="pr"><label>Custom</label><input type="text" id="dfmt" value="${el.dateFormat||'DD-MM-YYYY'}" onchange="sp('dateFormat',this.value,true)" placeholder="DD-MM-YYYY"></div>
+    </div>`;
+    h+=fontBlock(el)+colorBlock('color','Text Color',el);
+  } else if(el.type==='weekday'){
+    h+=`<div class="ps"><div class="pt">Day of Week</div>
+    <div class="pr"><label>Format</label><select onchange="sp('weekdayFormat',this.value,true)">
+      <option value="full" ${(el.weekdayFormat||'full')==='full'?'selected':''}>Full (Tuesday)</option>
+      <option value="short" ${el.weekdayFormat==='short'?'selected':''}>Short (Tue)</option>
+    </select></div>
+    </div>`;
+    h+=fontBlock(el)+colorBlock('color','Text Color',el);
+  } else if(el.type==='static'){
+    h+=`<div class="ps"><div class="pt">Static Text</div>
+    <div class="pr"><label>Text</label><input type="text" value="${(el.customText||'').replace(/"/g,'&quot;')}" onchange="sp('customText',this.value,true)"></div>
+    </div>`;
+    h+=fontBlock(el)+colorBlock('color','Text Color',el);
+  } else if(el.type==='text'){
+    const keys=Object.keys(SEN).filter(k=>!TIME_KEYS.has(k));
+    h+=`<div class="ps"><div class="pt">Sensor Value</div>
+    <div class="pr"><label>Sensor</label><select onchange="sp('sensorKey',this.value,true)">${keys.map(k=>`<option value="${k}" ${k===el.sensorKey?'selected':''}>${SEN[k].l}</option>`).join('')}</select></div>
+    <div class="pr"><label>Prefix</label><input type="text" value="${(el.prefix||'').replace(/"/g,'&quot;')}" placeholder="e.g. CPU: " onchange="sp('prefix',this.value,true)"></div>
+    <div class="pr"><label>Unit/Suffix</label><input type="text" value="${el.unit||''}" onchange="sp('unit',this.value,true)"></div>
+    <div class="pr"><label>Auto-size</label><input type="checkbox" ${!el.manualSize?'checked':''} onchange="sp('manualSize',!this.checked,true)"></div>
+    </div>`;
+    h+=fontBlock(el)+colorBlock('color','Text Color',el);
+  } else if(el.type==='bar'){
+    const keys=Object.keys(SEN).filter(k=>SEN[k].max!==null&&!TIME_KEYS.has(k));
+    const barStyle=el.barStyle||'solid';
+    h+=`<div class="ps"><div class="pt">Bar</div>
+    <div class="pr"><label>Sensor</label><select onchange="sp('sensorKey',this.value,true)">${keys.map(k=>`<option value="${k}" ${k===el.sensorKey?'selected':''}>${SEN[k].l}</option>`).join('')}</select></div>
+    <div class="pr"><label>Max Value</label><input type="number" value="${el.maxValue||100}" onchange="sp('maxValue',+this.value,true)"></div>
+    <div class="pr"><label>Style</label><select onchange="sp('barStyle',this.value,true)">
+      <option value="solid" ${barStyle==='solid'?'selected':''}>Solid</option>
+      <option value="segmented" ${barStyle==='segmented'?'selected':''}>Segmented (LED blocks)</option>
+      <option value="gapped" ${barStyle==='gapped'?'selected':''}>Gapped (fill + tick lines)</option>
+    </select></div>
+    ${barStyle!=='solid'?`<div class="pr"><label>Segments</label><input type="number" value="${el.segmentCount||(barStyle==='segmented'?12:16)}" onchange="sp('segmentCount',+this.value,true)" min="2" max="60"></div>
+    <div class="pr"><label>Gap ${barStyle==='segmented'?'%':'px'}</label><input type="number" value="${el.segmentGap!=null?el.segmentGap:(barStyle==='segmented'?18:2)}" onchange="sp('segmentGap',+this.value,true)" min="0" max="${barStyle==='segmented'?60:20}"></div>`:''}
+    <div class="pr"><label>Corner R</label><input type="number" value="${el.cornerRadius||0}" onchange="sp('cornerRadius',+this.value,true)" min="0" max="50"></div>
+    <div class="pr"><label>Border px</label><input type="number" value="${el.borderThickness||0}" onchange="sp('borderThickness',+this.value,true)" min="0"></div>
+    </div>`;
+    h+=colorBlock('fillColor','Fill Color',el)+colorBlock('bgColor','Background',el)+colorBlock('borderColor','Border',el);
+  } else if(el.type==='ring'){
+    const keys=Object.keys(SEN).filter(k=>SEN[k].max!==null&&!TIME_KEYS.has(k));
+    const ringStyle=el.ringStyle||'solid';
+    h+=`<div class="ps"><div class="pt">Ring Gauge</div>
+    <div class="pr"><label>Sensor</label><select onchange="sp('sensorKey',this.value,true)">${keys.map(k=>`<option value="${k}" ${k===el.sensorKey?'selected':''}>${SEN[k].l}</option>`).join('')}</select></div>
+    <div class="pr"><label>Max Value</label><input type="number" value="${el.maxValue||100}" onchange="sp('maxValue',+this.value,true)"></div>
+    <div class="pr"><label>Style</label><select onchange="sp('ringStyle',this.value,true)">
+      <option value="solid" ${ringStyle==='solid'?'selected':''}>Solid Arc</option>
+      <option value="segmented" ${ringStyle==='segmented'?'selected':''}>Segmented (LED blocks)</option>
+    </select></div>
+    ${ringStyle==='segmented'?`<div class="pr"><label>Segments</label><input type="number" value="${el.segmentCount||24}" onchange="sp('segmentCount',+this.value,true)" min="6" max="72"></div>
+    <div class="pr"><label>Gap (deg)</label><input type="number" value="${el.segmentGap!=null?el.segmentGap:6}" onchange="sp('segmentGap',+this.value,true)" min="0" max="20" step="0.5"></div>
+    <div class="pr"><label>Segment Cap</label><select onchange="sp('segmentCap',this.value,true)">
+      <option value="butt" ${el.segmentCap!=='round'?'selected':''}>Flat</option>
+      <option value="round" ${el.segmentCap==='round'?'selected':''}>Rounded</option>
+    </select></div>`:''}
+    <div class="pr"><label>Ring Width</label><input type="number" value="${el.ringWidth||14}" onchange="sp('ringWidth',+this.value,true)" min="2" max="80"></div>
+    <div class="pr"><label>Show Label</label><input type="checkbox" ${el.showLabel?'checked':''} onchange="sp('showLabel',this.checked,true)"></div>
+    </div>`;
+    if(el.showLabel){
+      const fonts=['Consolas','Arial','Segoe UI','Courier New'];
+      h+=`<div class="ps"><div class="pt">Ring Label</div>
+      <div class="pr"><label>Font</label><select onchange="sp('labelFontFamily',this.value,true)">${fonts.map(f=>`<option value="${f}" ${f===el.labelFontFamily?'selected':''}>${f}</option>`).join('')}</select></div>
+      <div class="pr"><label>Size px</label><input type="number" value="${el.labelFontSize||28}" onchange="sp('labelFontSize',+this.value,true)"></div>
+      <div class="pr"><label>Bold</label><input type="checkbox" ${el.labelBold?'checked':''} onchange="sp('labelBold',this.checked,true)"></div>
+      <div class="pr"><label>Unit suffix</label><input type="text" value="${el.unit||''}" onchange="sp('unit',this.value,true)"></div>
+      </div>`;
+      h+=colorBlock('labelColor','Label Color',el);
+    }
+    h+=colorBlock('arcColor','Arc Color',el)+colorBlock('trackColor','Track Color',el);
+  } else if(el.type==='linegraph'){
+    const keys=Object.keys(SEN).filter(k=>typeof SEN[k].s==='number'&&!TIME_KEYS.has(k));
+    const noneOpt='<option value="">— none —</option>';
+    h+=`<div class="ps"><div class="pt">Line Graph — Series 1 (left axis)</div>
+    <div class="pr"><label>Sensor</label><select onchange="sp('sensorKey',this.value,true)">${keys.map(k=>`<option value="${k}" ${k===el.sensorKey?'selected':''}>${SEN[k].l}</option>`).join('')}</select></div>
+    <div class="pr"><label>Max Value</label><input type="number" value="${el.maxValue||100}" onchange="sp('maxValue',+this.value,true)"></div>
+    </div>`;
+    h+=colorBlock('lineColor','Series 1 Color',el)+colorBlock('fillColor','Fill Under Series 1',el);
+
+    h+=`<div class="ps"><div class="pt">Series 2 (right axis)</div>
+    <div class="pr"><label>Sensor</label><select onchange="sp('sensorKey2',this.value,true)">${noneOpt}${keys.map(k=>`<option value="${k}" ${k===el.sensorKey2?'selected':''}>${SEN[k].l}</option>`).join('')}</select></div>
+    </div>`;
+    if(el.sensorKey2) h+=colorBlock('lineColor2','Series 2 Color',el);
+
+    h+=`<div class="ps"><div class="pt">Series 3 (right axis)</div>
+    <div class="pr"><label>Sensor</label><select onchange="sp('sensorKey3',this.value,true)">${noneOpt}${keys.map(k=>`<option value="${k}" ${k===el.sensorKey3?'selected':''}>${SEN[k].l}</option>`).join('')}</select></div>
+    </div>`;
+    if(el.sensorKey3) h+=colorBlock('lineColor3','Series 3 Color',el);
+
+    if(el.sensorKey2||el.sensorKey3){
+      h+=`<div class="ps"><div class="pt">Right Axis</div>
+      <div class="pr"><label>Max Value</label><input type="number" value="${el.maxValue2||100}" onchange="sp('maxValue2',+this.value,true)"></div>
+      </div>`;
+    }
+
+    h+=`<div class="ps"><div class="pt">Graph Style</div>
+    <div class="pr"><label>History (s)</label><input type="number" value="${el.historySeconds||60}" onchange="sp('historySeconds',+this.value,false)" min="5"></div>
+    <div class="pr"><label>Line Width</label><input type="number" value="${el.lineWidth||2}" onchange="sp('lineWidth',+this.value,true)" min="1" max="10"></div>
+    <div class="pr"><label>Show Grid</label><input type="checkbox" ${el.showGrid?'checked':''} onchange="sp('showGrid',this.checked,true)"></div>
+    <div class="pr"><label>Corner R</label><input type="number" value="${el.cornerRadius||3}" onchange="sp('cornerRadius',+this.value,true)" min="0"></div>
+    </div>`;
+    h+=colorBlock('bgColor','Background',el)+colorBlock('gridColor','Grid Lines',el);
+  } else if(el.type==='rect'){
+    h+=`<div class="ps"><div class="pt">Rectangle</div>
+    <div class="pr"><label>Corner R</label><input type="number" value="${el.cornerRadius||0}" onchange="sp('cornerRadius',+this.value,true)" min="0" max="500"></div>
+    </div>`;
+    h+=colorBlock('fillColor','Fill Color',el);
+  } else if(el.type==='image'){
+    h+=`<div class="ps"><div class="pt">Image Layer</div>
+    <div class="pr"><label>File</label><span style="font-size:10px;color:var(--muted);flex:1;overflow:hidden;text-overflow:ellipsis">${el.filename||'none'}</span></div>
+    <div class="pr"><label></label><button class="pr-btn" onclick="reloadImg('${el.id}')">📂 Change…</button></div>
+    </div>`;
+  }
+  pc.innerHTML=h;
+}
+
+function snapH(dir){
+  const el=elems.find(e=>e.id===selId);if(!el)return;
+  if(dir==='left')el.x=0;
+  else if(dir==='center')el.x=Math.round((CW-(el.w||0))/2);
+  else el.x=CW-(el.w||0);
+  document.getElementById(selId).style.left=el.x+'px';updPosInputs(el);
+}
+function snapV(dir){
+  const el=elems.find(e=>e.id===selId);if(!el)return;
+  if(dir==='top')el.y=0;
+  else if(dir==='mid')el.y=Math.round((CH-(el.h||0))/2);
+  else el.y=CH-(el.h||0);
+  document.getElementById(selId).style.top=el.y+'px';updPosInputs(el);
+}
+function reloadImg(id){
+  const el=elems.find(e=>e.id===id);if(!el)return;
+  pick('image/png,image/jpeg,image/gif',f=>{
+    const r=new FileReader();
+    r.onload=e2=>{el.data=e2.target.result;el.file=f;el.filename=f.name;renderEl(el);renderProps(el);};
+    r.readAsDataURL(f);
+  });
+}
+
+// ── LAYERS ────────────────────────────────────────────────────────────────────
+const TICON={text:'lt-t',static:'lt-s',clock:'lt-t',date:'lt-t',weekday:'lt-t',
+  bar:'lt-b',ring:'lt-r',linegraph:'lt-l',rect:'lt-d',image:'lt-i'};
+const TLBL={text:'val',static:'txt',clock:'clk',date:'dte',weekday:'day',
+  bar:'bar',ring:'rng',linegraph:'grph',rect:'rect',image:'img'};
+
+function refreshLayers(){
+  const ll=$('ll');ll.innerHTML='';
+  for(const el of [...elems].sort((a,b)=>b.z-a.z)){
+    const name=el.type==='static'?(el.customText||'Label'):el.type==='image'?(el.filename||'image'):(sLabel(el.sensorKey)||el.type);
+    const div=document.createElement('div');
+    div.className='lr'+(el.id===selId?' active':'');div.dataset.id=el.id;
+    div.innerHTML=`<span class="lrz">${el.z}</span>
+      <span class="ltb ${TICON[el.type]||'lt-s'}">${TLBL[el.type]||el.type}</span>
+      <span class="lrn">${name}</span>
+      <span class="lrv" onclick="event.stopPropagation();toggleVis('${el.id}')">${el.visible?'👁':'🚫'}</span>
+      <span class="lrd" onclick="event.stopPropagation();deleteEl('${el.id}')">✕</span>`;
+    div.addEventListener('click',()=>sel(el.id));
+    ll.appendChild(div);
+  }
+}
+function toggleVis(id){
+  const el=elems.find(e=>e.id===id);if(!el)return;
+  el.visible=!el.visible;document.getElementById(id).style.display=el.visible?'':'none';refreshLayers();
+}
+function deleteEl(id){
+  elems=elems.filter(e=>e.id!==id);
+  const d=document.getElementById(id);
+  if(d){if(d._ro)d._ro.disconnect();d.remove();}
+  if(selId===id){selId=null;renderProps(null);}
+  refreshLayers();updStatus();
+}
+function updStatus(){
+  $('ssel').textContent=elems.length+' element'+(elems.length!==1?'s':'');
+  const el=elems.find(e=>e.id===selId);
+  $('sinfo').textContent=el?`${el.type} @ (${Math.round(el.x)},${Math.round(el.y)}) ${Math.round(el.w||0)}\u00D7${Math.round(el.h||0)}`:'Nothing selected';
+}
+function clearAllSilent(){
+  elems.forEach(e=>{const d=document.getElementById(e.id);if(d){if(d._ro)d._ro.disconnect();d.remove();}});
+  elems=[];selId=null;backData=null;
+  $('canvas').querySelectorAll('.ce').forEach(d=>d.remove());
+  $('backImg').style.display='none';$('backImg').src='';
+  $('backVid').style.display='none';$('backVid').src='';
+  refreshLayers();renderProps(null);updStatus();
+}
+function clearAll(){
+  if(!confirm('Clear all elements?'))return;
+  clearAllSilent();
+  toast('Cleared');
+}
+
+// ── SENSOR MAP ────────────────────────────────────────────────────────────────
+function openSensorMap(){
+  const rows=Object.entries(sensorMap).map(([k,idx])=>`<tr>
+    <td style="color:var(--text);padding:3px 8px">${SEN[k]?.l||k}</td>
+    <td style="padding:3px 8px"><code style="font-size:10px;color:var(--muted)">${k}</code></td>
+    <td style="padding:3px 8px"><input type="number" min="0" max="99" value="${idx??''}" placeholder="—" data-key="${k}" style="width:56px;background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:2px 5px;border-radius:3px;font-size:11px;text-align:center"></td>
+  </tr>`).join('');
+  const m=document.createElement('div');m.className='mbg';
+  m.innerHTML=`<div class="modal" style="max-width:460px"><h2>⚙ HWiNFO64 Sensor Map</h2>
+    <p style="font-size:11px;color:var(--muted);margin-bottom:10px">Enter the registry index (ValueRawN) from HWiNFO64 Gadget output.</p>
+    <table style="width:100%;border-collapse:collapse"><thead><tr>
+      <th style="text-align:left;padding:3px 8px;color:var(--muted);font-size:10px;border-bottom:1px solid var(--border)">Sensor</th>
+      <th style="text-align:left;padding:3px 8px;color:var(--muted);font-size:10px;border-bottom:1px solid var(--border)">Key</th>
+      <th style="text-align:left;padding:3px 8px;color:var(--muted);font-size:10px;border-bottom:1px solid var(--border)">Index</th>
+    </tr></thead><tbody>${rows}</tbody></table>
+    <div class="mbtns"><button class="btn" onclick="this.closest('.mbg').remove()">Cancel</button>
+    <button class="btn primary" onclick="saveSensorMap(this.closest('.mbg'))">Save</button></div></div>`;
+  document.body.appendChild(m);
+}
+function saveSensorMap(mbg){
+  mbg.querySelectorAll('input[data-key]').forEach(inp=>{
+    const v=inp.value.trim();sensorMap[inp.dataset.key]=v===''?null:parseInt(v);
+  });mbg.remove();toast('Sensor map saved');
+}
+
+function loadThemeJson(theme){
+  clearAllSilent();
+  if(theme.sensorMap)Object.assign(sensorMap,theme.sensorMap);
+  if(theme.themeColors)themeColors=theme.themeColors;
+  if(theme.visibleSensors)visibleSensors=new Set(theme.visibleSensors);
+  $('themeName').value=theme.name||'MyTheme';
+  setOri((theme.width||462)>(theme.height||1920)?'horizontal':'vertical');
+  // Restore background
+  if(theme.backgroundImage){
+    const name=theme.backgroundImageName||'back.png';
+    const isVid=/\.(mp4|avi|wmv)$/i.test(name);
+    backData={name,isVideo:isVid,data:theme.backgroundImage};
+    showBg(theme.backgroundImage,name,isVid);
+  }
+  for(const el of theme.elements||[]){
+    elems.push(el);renderEl(el);
+    nid=Math.max(nid,parseInt(el.id.replace('el_',''))+1);
+    nz=Math.max(nz,el.z+1);
+  }
+  refreshLayers();updStatus();setTimeout(()=>chZoom(0),80);
+  toast('Loaded: '+(theme.name||'theme'));
+}
+
+// ── FONTS ─────────────────────────────────────────────────────────────────────
+let systemFonts=[];   // populated by loadSystemFonts()
+let fontFiles={};     // family name -> {name, dataURL} for custom loaded fonts
+
+async function loadSystemFonts(){
+  if(!window.queryLocalFonts){
+    toast('System font API requires Chrome or Edge — or type a font name manually');
+    return;
+  }
+  try{
+    toast('Requesting font access…');
+    const fonts=await window.queryLocalFonts();
+    systemFonts=[...new Set(fonts.map(f=>f.family))].sort();
+    toast(`${systemFonts.length} system fonts loaded — dropdown updated`);
+    const el=elems.find(e=>e.id===selId);
+    if(el) renderProps(el);
+  }catch(e){
+    toast('Font access denied: '+e.message);
+  }
+}
+
+function loadFontFile(){
+  pick('.ttf,.otf',f=>{
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      const baseName=f.name.replace(/\.(ttf|otf)$/i,'');
+      const dataURL=ev.target.result;
+      fontFiles[baseName]={name:f.name,data:dataURL};
+      // Register with browser for live preview
+      const face=new FontFace(baseName,`url(${dataURL})`);
+      face.load().then(loaded=>{
+        document.fonts.add(loaded);
+        toast(`Font loaded: "${baseName}" — select it from the dropdown`);
+        const el=elems.find(e=>e.id===selId);
+        if(el) renderProps(el);
+      }).catch(()=>toast('Font stored but preview unavailable: '+f.name));
+    };
+    reader.readAsDataURL(f);
+  });
+}
+
+// ── SENSOR FILE IMPORT ────────────────────────────────────────────────────────
+// hwinfo_sensors.json → %APPDATA%\DS916Tray\hwinfo_sensors.json
+// Themes              → %APPDATA%\DS916Tray\Themes\
+
+const APPDATA_PATH = '%APPDATA%\\DS916Tray';
+const SENSORS_PATH = APPDATA_PATH + '\\hwinfo_sensors.json';
+const THEMES_PATH  = APPDATA_PATH + '\\Themes';
+
+let discoveredSensors = [];
+
+function getDefaultMax(s){
+  if(s.type==='Temperature') return 110;
+  if(s.type==='Usage') return 100;
+  if(s.type==='Fan') return 4000;
+  if(s.type==='Power') return 500;
+  return null;
+}
+function getCat(type){
+  const m={
+    Temperature:'motherboard', // default; specific sensors get mapped better via stdNames
+    Fan:'motherboard',
+    Usage:'cpu',
+    Voltage:'system',
+    Current:'system',
+    Power:'system',
+    Clock:'cpu',
+  };
+  return m[type]||'system';
+}
+
+function applySensorData(data, filename){
+  if(!data.sensors||!Array.isArray(data.sensors)) throw new Error('Invalid sensor file');
+  discoveredSensors=data.sensors;
+
+  // Build a lookup from sensor_index -> device name for enriching discovered sensors
+  const deviceNameMap={};
+  if(data.device_names&&Array.isArray(data.device_names)){
+    for(const d of data.device_names){
+      deviceNameMap[d.index]=d.name;
+    }
+    // Add device names as static-label entries in a dedicated 'devicenames' category
+    // so users can drop them onto the canvas as identifying labels
+    for(const d of data.device_names){
+      const key=`DEVICE_${d.index}`;
+      if(!SEN[key]){
+        SEN[key]={l:d.name,u:'',s:d.name,max:null,cat:'devicenames'};
+      }
+    }
+    // Ensure the devicenames category exists in CATS (add dynamically if not already there)
+    if(data.device_names.length>0&&!CATS.find(c=>c.id==='devicenames')){
+      // Insert before _static
+      const staticIdx=CATS.findIndex(c=>c.id==='_static');
+      CATS.splice(staticIdx,0,{id:'devicenames',label:'🖥 Device Names'});
+    }
+  }
+
+  for(const s of discoveredSensors){
+    const key=`CUSTOM_${s.index}`;
+    if(!SEN[key]){
+      // Assign more specific category based on device group context
+      let cat=getCat(s.type);
+      const devName=(deviceNameMap[s.sensor_index]||'').toLowerCase();
+      if(devName.includes('cpu')||devName.includes('ryzen')||devName.includes('core')||devName.includes('intel'))
+        cat='cpu';
+      else if(devName.includes('gpu')||devName.includes('geforce')||devName.includes('radeon')||devName.includes('rtx')||devName.includes('rx '))
+        cat='gpu';
+      else if(devName.includes('motherboard')||devName.includes('nuvoton')||devName.includes('ite ')||devName.includes('b550')||devName.includes('b650')||devName.includes('x570')||devName.includes('z790'))
+        cat='motherboard';
+      else if(devName.includes('drive')||devName.includes('ssd')||devName.includes('nvme')||devName.includes('wd ')||devName.includes('samsung'))
+        cat='storage';
+      else if(devName.includes('network')||devName.includes('ethernet')||devName.includes('wifi'))
+        cat='network';
+
+      SEN[key]={l:s.name,u:s.unit||'',s:s.sample||0,max:getDefaultMax(s),cat};
+      sensorMap[key]=s.index;
+    }
+  }
+
+  // Auto-map discovered sensor names to standard keys where possible.
+  // These update the sensorMap so the standard keys (CPU_USAGE, GPU_TEMP etc.)
+  // point to the correct HWiNFO index for THIS system.
+  // NOTE: 'CPU (tctl/Tdie)' and 'GPU Core Load' are intentionally excluded —
+  // tctl/Tdie is a duplicate of CPU_TEMP from the same device, and GPU Core Load
+  // is duplicated by GPU_USAGE already in the default palette.
+  const stdNames={
+    'Total CPU Usage':          'CPU_USAGE',
+    'CPU (Tctl/Tdie)':          'CPU_TEMP',   // maps to CPU_TEMP index but NOT added to palette
+    'GPU Temperature':          'GPU_TEMP',
+    'GPU Temperature (HOTSPOT)':null,          // skip
+    'Physical Memory Load':     'RAM_USAGE',
+    'Motherboard':              'MB_TEMP',
+    'Framerate Displayed (avg)':'FRAMERATE',
+  };
+  const AUTO_ADD_TO_PALETTE=new Set(['CPU_USAGE','GPU_TEMP','RAM_USAGE','MB_TEMP']);
+  for(const s of discoveredSensors){
+    const stdKey=stdNames[s.name];
+    if(stdKey&&SEN[stdKey]){
+      sensorMap[stdKey]=s.index;
+      if(AUTO_ADD_TO_PALETTE.has(stdKey))
+        visibleSensors.add(stdKey);
+    }
+  }
+
+  buildPalette();
+  toast(`✅ ${discoveredSensors.length} sensors available — use ＋ Sensors to add to palette`+(filename?' ('+filename+')':''));
+}
+
+async function importSensorList(){
+  if(window.showOpenFilePicker){
+    try{
+      const [fh]=await window.showOpenFilePicker({
+        id:'ds916sensors',
+        suggestedName:'hwinfo_sensors.json',
+        types:[{description:'DS916 Sensor File',accept:{'application/json':['.json']}}],
+      });
+      const text=await (await fh.getFile()).text();
+      applySensorData(JSON.parse(text), fh.name);
+      return;
+    }catch(e){if(e.name==='AbortError')return;}
+  }
+  // Fallback: standard file input
+  pick('.json',f=>{
+    const r=new FileReader();
+    r.onload=ev=>{
+      try{applySensorData(JSON.parse(ev.target.result),f.name);}
+      catch(e){toast('Sensor file error: '+e.message);}
+    };
+    r.readAsText(f);
+  });
+}
+
+async function exportTheme(){
+  const name=$('themeName').value.trim()||'MyTheme';
+  const theme={
+    name,width:CW,height:CH,background:'#111114',
+    backgroundImage:backData?.data||null,
+    backgroundImageName:backData?.name||null,
+    sensorMap,themeColors,
+    visibleSensors:[...visibleSensors],
+    customFonts:Object.entries(fontFiles).map(([family,f])=>({family,filename:f.name,data:f.data})),
+    elements:elems.map(el=>{const e={...el};delete e.file;delete e._pil_image;return e;})
+  };
+  const json=JSON.stringify(theme,null,2);
+  // Try File System Access API — starts in Themes folder suggestion
+  if(window.showSaveFilePicker){
+    try{
+      const fh=await window.showSaveFilePicker({
+        id:'ds916theme',
+        suggestedName:name+'.ds916theme',
+        types:[{description:'DS916 Theme',accept:{'application/json':['.ds916theme']}}],
+      });
+      const w=await fh.createWritable();
+      await w.write(json);
+      await w.close();
+      toast('Saved: '+name+'.ds916theme');
+      return;
+    }catch(e){if(e.name==='AbortError')return;}
+  }
+  // Fallback: download
+  const blob=new Blob([json],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=name+'.ds916theme';a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),2000);
+  toast('Saved: '+name+'.ds916theme');
+}
+
+async function importTheme(){
+  if(window.showOpenFilePicker){
+    try{
+      const [fh]=await window.showOpenFilePicker({
+        id:'ds916theme',
+        types:[{description:'DS916 Theme',accept:{'application/json':['.ds916theme','.zip']}}],
+      });
+      const f=await fh.getFile();
+      if(f.name.endsWith('.ds916theme')){
+        loadThemeJson(JSON.parse(await f.text()));
+      } else {
+        await importZip(f);
+      }
+      return;
+    }catch(e){if(e.name==='AbortError')return;}
+  }
+  // Fallback
+  pick('.ds916theme,.zip',async f=>{
+    try{
+      if(f.name.endsWith('.ds916theme')) loadThemeJson(JSON.parse(await f.text()));
+      else await importZip(f);
+    }catch(e){toast('Import error: '+e.message);}
+  });
+}
+
+async function importZip(f){
+  const zip=await JSZip.loadAsync(f);
+  const imageMap={};
+  for(const[name,entry]of Object.entries(zip.files)){
+    if(/\.(png|jpg|jpeg|gif|mp4|avi|wmv)$/i.test(name)&&!entry.dir){
+      const ab=await entry.async('arraybuffer');
+      const ext=name.split('.').pop().toLowerCase();
+      const mime={'jpg':'image/jpeg','jpeg':'image/jpeg','png':'image/png','gif':'image/gif','mp4':'video/mp4'}[ext]||'image/png';
+      imageMap[name.toLowerCase()]=URL.createObjectURL(new Blob([ab],{type:mime}));
+    }
+  }
+  const tf=Object.keys(zip.files).find(n=>n.endsWith('.ds916theme'));
+  if(!tf){toast('No .ds916theme found in ZIP');return;}
+  const theme=JSON.parse(await zip.files[tf].async('string'));
+  for(const el of theme.elements||[]){
+    if(el.type==='image'&&el.filename&&!el.data) el.data=imageMap[el.filename.toLowerCase()]||null;
+  }
+  const bk=Object.keys(imageMap).find(k=>/^back\./i.test(k));
+  if(bk&&!theme.backgroundImage){theme.backgroundImage=imageMap[bk];theme.backgroundImageName=bk;}
+  loadThemeJson(theme);
+}
+
+function promptSensorImport(){
+  const modal=document.createElement('div');modal.className='mbg';
+  modal.innerHTML=`<div class="modal" style="max-width:480px">
+    <h2>🔍 Import Sensor List</h2>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.6">
+      Import your system's sensor list so the palette shows all your hardware sensors.<br><br>
+      <b style="color:var(--accent)">The file is at:</b><br>
+      <code style="color:var(--text);background:var(--panel2);padding:3px 6px;border-radius:3px;display:inline-block;margin:4px 0">%APPDATA%\DS916Tray\hwinfo_sensors.json</code><br><br>
+      If the file doesn't exist yet, run the DS916 tray app first — it generates the file automatically on startup.
+    </p>
+    <div class="mbtns">
+      <button class="btn" onclick="this.closest('.mbg').remove()">Skip for now</button>
+      <button class="btn primary" onclick="this.closest('.mbg').remove();importSensorList()">📂 Browse for file…</button>
+    </div>
+  </div>`;
+  document.body.appendChild(modal);
+}
+
+// ── AI THEME GENERATOR (rule-based, no external API, offline) ────────────────
+// Twelve curated "vibes" each defining colors, fonts, decoration style, and a
+// procedurally generated SVG gradient background. The layout engine places
+// clock/date + selected sensors using a deterministic grid algorithm so
+// results are reliable, overlap-free, and reproducible.
+
+const VIBES = {
+  space: {
+    label:'🌌 Space', accent:'#5ec8ffff', accent2:'#a070d0ff', text:'#ffffffff',
+    sub:'#8899bbff', font:'Consolas', corner:6,
+    bg:(W,H)=>radialBg(W,H,['#05050f','#0a0a22','#000000'],starfield(W,H,80))
+  },
+  cyberpunk: {
+    label:'🌆 Cyberpunk', accent:'#ff2e9aff', accent2:'#00f0ffff', text:'#ffffffff',
+    sub:'#ff2e9aaa', font:'Impact', corner:0,
+    bg:(W,H)=>linearBg(W,H,['#000000','#1a0022','#220011'],135,scanlines(W,H))
+  },
+  minimal: {
+    label:'◻ Minimal', accent:'#4b8fe0ff', accent2:'#4b8fe0ff', text:'#f0f0f0ff',
+    sub:'#777777ff', font:'Segoe UI', corner:2,
+    bg:(W,H)=>flatBg(W,H,'#15151a')
+  },
+  nature: {
+    label:'🌿 Nature', accent:'#e0a84bff', accent2:'#6fbf5fff', text:'#f5f0e0ff',
+    sub:'#a9c79aff', font:'Georgia', corner:14,
+    bg:(W,H)=>linearBg(W,H,['#0c1f12','#16321c','#0a1a0f'],180)
+  },
+  racing: {
+    label:'🏁 Racing', accent:'#ff3030ff', accent2:'#ffffffff', text:'#ffffffff',
+    sub:'#ff8080aa', font:'Impact', corner:0,
+    bg:(W,H)=>diagonalBg(W,H,['#0a0a0a','#1a0000','#000000'],stripes(W,H))
+  },
+  anime: {
+    label:'🎀 Anime', accent:'#ff7ad9ff', accent2:'#7adfffff', text:'#ffffffff',
+    sub:'#ffc0e8ff', font:'Verdana', corner:20,
+    bg:(W,H)=>radialBg(W,H,['#2a0a3a','#4a1a5a','#1a0030'],bubbles(W,H))
+  },
+  synthwave: {
+    label:'🌇 Synthwave', accent:'#ff3df0ff', accent2:'#3df0ffff', text:'#ffffffff',
+    sub:'#ff3df0aa', font:'Impact', corner:4,
+    bg:(W,H)=>linearBg(W,H,['#1a0033','#4a0050','#ff6020'],180,gridHorizon(W,H))
+  },
+  industrial: {
+    label:'⚙ Industrial', accent:'#ffa030ff', accent2:'#d0d0d0ff', text:'#f0f0f0ff',
+    sub:'#999999ff', font:'Courier New', corner:0,
+    bg:(W,H)=>flatBg(W,H,'#23262b',rivets(W,H))
+  },
+  ocean: {
+    label:'🌊 Ocean', accent:'#5ad0e0ff', accent2:'#ffffffff', text:'#e8f8ffff',
+    sub:'#9accd6ff', font:'Segoe UI', corner:18,
+    bg:(W,H)=>linearBg(W,H,['#001a2a','#003a52','#001018'],180,waves(W,H))
+  },
+  monochrome: {
+    label:'⚫ Monochrome', accent:'#ffffffff', accent2:'#888888ff', text:'#ffffffff',
+    sub:'#666666ff', font:'Arial', corner:0,
+    bg:(W,H)=>flatBg(W,H,'#000000')
+  },
+  volcanic: {
+    label:'🌋 Volcanic', accent:'#ff5020ff', accent2:'#ffb030ff', text:'#fff0e0ff',
+    sub:'#cc6633ff', font:'Impact', corner:0,
+    bg:(W,H)=>radialBg(W,H,['#1a0500','#330a00','#000000'],jaggedGlow(W,H))
+  },
+  aurora: {
+    label:'🌠 Aurora', accent:'#5effc0ff', accent2:'#a070ffff', text:'#ffffffff',
+    sub:'#88ddccff', font:'Segoe UI', corner:10,
+    bg:(W,H)=>flatBg(W,H,'#04060aff',auroraBands(W,H))
+  },
+};
+
+// ── SVG background generators (no external assets, all procedural) ──────────
+function svgWrap(W,H,defs,body){
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${defs||''}${body}</svg>`;
+}
+function flatBg(W,H,color,extra=''){
+  return svgWrap(W,H,'',`<rect width="${W}" height="${H}" fill="${color}"/>${extra}`);
+}
+function linearBg(W,H,colors,angle=180,extra=''){
+  const id='lg'+Math.random().toString(36).slice(2,8);
+  const stops=colors.map((c,i)=>`<stop offset="${(i/(colors.length-1)*100).toFixed(0)}%" stop-color="${c}"/>`).join('');
+  const rad=angle*Math.PI/180;
+  const x2=(50+50*Math.sin(rad)).toFixed(0), y2=(50-50*Math.cos(rad)).toFixed(0);
+  const x1=(50-50*Math.sin(rad)).toFixed(0), y1=(50+50*Math.cos(rad)).toFixed(0);
+  return svgWrap(W,H,`<defs><linearGradient id="${id}" x1="${x1}%" y1="${y1}%" x2="${x2}%" y2="${y2}%">${stops}</linearGradient></defs>`,
+    `<rect width="${W}" height="${H}" fill="url(#${id})"/>${extra}`);
+}
+function radialBg(W,H,colors,extra=''){
+  const id='rg'+Math.random().toString(36).slice(2,8);
+  const stops=colors.map((c,i)=>`<stop offset="${(i/(colors.length-1)*100).toFixed(0)}%" stop-color="${c}"/>`).join('');
+  return svgWrap(W,H,`<defs><radialGradient id="${id}" cx="50%" cy="35%" r="75%">${stops}</radialGradient></defs>`,
+    `<rect width="${W}" height="${H}" fill="url(#${id})"/>${extra}`);
+}
+function diagonalBg(W,H,colors,extra=''){ return linearBg(W,H,colors,135,extra); }
+function starfield(W,H,n){
+  let s='';
+  for(let i=0;i<n;i++){
+    const x=Math.random()*W,y=Math.random()*H,r=Math.random()*1.6+0.3,o=(Math.random()*0.6+0.3).toFixed(2);
+    s+=`<circle cx="${x.toFixed(0)}" cy="${y.toFixed(0)}" r="${r.toFixed(1)}" fill="#fff" opacity="${o}"/>`;
+  }
+  return s;
+}
+function scanlines(W,H){
+  let s='';
+  for(let y=0;y<H;y+=6) s+=`<line x1="0" y1="${y}" x2="${W}" y2="${y}" stroke="#ff2e9a" stroke-width="0.5" opacity="0.05"/>`;
+  return s;
+}
+function stripes(W,H){
+  let s='';
+  for(let i=-2;i<6;i++){
+    const x=i*W/3;
+    s+=`<polygon points="${x},${H} ${x+W*0.15},${H} ${x+W*0.4},0 ${x+W*0.25},0" fill="#ffffff" opacity="0.04"/>`;
+  }
+  return s;
+}
+function bubbles(W,H){
+  let s='';
+  for(let i=0;i<14;i++){
+    const x=Math.random()*W,y=Math.random()*H,r=Math.random()*40+10;
+    s+=`<circle cx="${x.toFixed(0)}" cy="${y.toFixed(0)}" r="${r.toFixed(0)}" fill="#ffffff" opacity="0.04"/>`;
+  }
+  return s;
+}
+function gridHorizon(W,H){
+  let s='';
+  const hy=H*0.62;
+  for(let i=0;i<14;i++){
+    const sx=W/2+(i-7)*W*0.12;
+    s+=`<line x1="${W/2}" y1="${hy}" x2="${sx}" y2="${H}" stroke="#3df0ff" stroke-width="1" opacity="0.25"/>`;
+  }
+  for(let i=0;i<8;i++){
+    const ly=hy+(H-hy)*(i/8)*(i/8);
+    s+=`<line x1="0" y1="${ly.toFixed(0)}" x2="${W}" y2="${ly.toFixed(0)}" stroke="#3df0ff" stroke-width="1" opacity="0.2"/>`;
+  }
+  s+=`<circle cx="${W/2}" cy="${hy}" r="${W*0.32}" fill="#ff6020" opacity="0.18"/>`;
+  return s;
+}
+function rivets(W,H){
+  let s='';
+  for(let y=20;y<H;y+=80) for(let x=20;x<W;x+=80)
+    s+=`<circle cx="${x}" cy="${y}" r="2" fill="#000" opacity="0.3"/>`;
+  return s;
+}
+function waves(W,H){
+  let s='';
+  for(let i=0;i<4;i++){
+    const y=H*0.5+i*H*0.12;
+    s+=`<path d="M0,${y} Q${W*0.25},${y-25} ${W*0.5},${y} T${W},${y}" stroke="#5ad0e0" stroke-width="2" fill="none" opacity="${0.15-i*0.03}"/>`;
+  }
+  return s;
+}
+function jaggedGlow(W,H){
+  return `<polygon points="0,${H} ${W*0.3},${H*0.7} ${W*0.5},${H*0.85} ${W*0.7},${H*0.65} ${W},${H} 0,${H}" fill="#ff5020" opacity="0.15"/>`;
+}
+function auroraBands(W,H){
+  let s='';
+  const colors=['#5effc0','#a070ff','#5effc0'];
+  for(let i=0;i<3;i++){
+    const yOff=H*0.15+i*H*0.08;
+    s+=`<path d="M0,${yOff} Q${W*0.3},${yOff-60} ${W*0.6},${yOff+20} T${W},${yOff-10} L${W},0 L0,0 Z" fill="${colors[i]}" opacity="0.08"/>`;
+  }
+  return s;
+}
+
+// ── Sensor defaults for auto-pick ────────────────────────────────────────────
+const AI_DEFAULT_SENSORS=[
+  {key:'CLOCK',  type:'clock'},
+  {key:'DATE',   type:'date'},
+  {key:'CPU_USAGE', type:'ring'},
+  {key:'CPU_TEMP',  type:'text'},
+  {key:'CPU_FAN',   type:'text'},
+  {key:'GPU_USAGE', type:'ring'},
+  {key:'GPU_TEMP',  type:'text'},
+  {key:'MB_TEMP',   type:'text'},
+  {key:'CHASSIS_FAN1', type:'text'},
+  {key:'CHASSIS_FAN2', type:'text'},
+];
+
+let aiSelectedSensors=new Map(AI_DEFAULT_SENSORS.map(s=>[s.key,s.type]));
+let aiSelectedVibe='space';
+
+function openAiGenerate(){
+  const m=document.createElement('div');m.className='mbg';
+  const vibeGrid=Object.entries(VIBES).map(([k,v])=>{
+    const grad=v.bg(80,80);
+    const sel=k===aiSelectedVibe;
+    return `<div class="ai-vibe${sel?' sel':''}" data-vibe="${k}" onclick="selectAiVibe('${k}')" title="${v.label}">
+      <div class="ai-vibe-prev">${grad}</div>
+      <div class="ai-vibe-label">${v.label}</div>
+    </div>`;
+  }).join('');
+
+  const allKeys=Object.keys(SEN).filter(k=>!['CLOCK','CLOCKSEC','DATE','WEEKDAY'].includes(k));
+  const sensorRows=allKeys.map(k=>{
+    const checked=aiSelectedSensors.has(k);
+    return `<div class="ai-sensor-row"><input type="checkbox" id="ai_${k}" ${checked?'checked':''} onchange="toggleAiSensor('${k}')"><label for="ai_${k}">${SEN[k].l}</label></div>`;
+  }).join('');
+
+  m.innerHTML=`<div class="modal" style="max-width:640px;display:flex;flex-direction:column;max-height:88vh">
+    <h2 style="flex-shrink:0">✨ AI Theme Generator</h2>
+    <p style="font-size:11px;color:var(--muted);margin-bottom:10px;flex-shrink:0">Pick a vibe and sensors — a complete layout, color palette, and background will be generated instantly.</p>
+    <div style="flex:1;overflow-y:auto;min-height:0">
+      <div class="pt" style="padding-left:0">Orientation</div>
+      <div style="display:flex;gap:8px;margin-bottom:14px">
+        <button class="ob${ori==='vertical'?' active':''}" id="ai_ori_v" onclick="setOri('vertical');document.getElementById('ai_ori_v').classList.add('active');document.getElementById('ai_ori_h').classList.remove('active')">▯ Vertical</button>
+        <button class="ob${ori==='horizontal'?' active':''}" id="ai_ori_h" onclick="setOri('horizontal');document.getElementById('ai_ori_h').classList.add('active');document.getElementById('ai_ori_v').classList.remove('active')">▭ Horizontal</button>
+      </div>
+      <div class="pt" style="padding-left:0">Vibe</div>
+      <div class="ai-vibe-grid">${vibeGrid}</div>
+      <div class="pt" style="padding-left:0;margin-top:10px">Sensors to include</div>
+      <div class="ai-sensor-grid">${sensorRows}</div>
+    </div>
+    <div class="mbtns" style="flex-shrink:0;border-top:1px solid var(--border);padding-top:12px;margin-top:8px">
+      <button class="btn" onclick="this.closest('.mbg').remove()">Cancel</button>
+      <button class="btn primary" style="background:linear-gradient(90deg,#a070d0,#00b4ff);border:none" onclick="runAiGenerate(this.closest('.mbg'))">✨ Generate Theme</button>
+    </div>
+  </div>`;
+  document.body.appendChild(m);
+}
+
+function selectAiVibe(key){
+  aiSelectedVibe=key;
+  document.querySelectorAll('.ai-vibe').forEach(el=>el.classList.toggle('sel',el.dataset.vibe===key));
+}
+function toggleAiSensor(key){
+  const cb=document.getElementById('ai_'+key);
+  if(cb.checked){
+    const s=SEN[key];
+    // Default type depends on sensor: usage-type sensors get a random
+    // pick among ring/bar/graph for variety; everything else is text
+    if(s.max!==null){
+      const opts=['ring','bar'];
+      aiSelectedSensors.set(key, opts[Math.floor(Math.random()*opts.length)]);
+    } else {
+      aiSelectedSensors.set(key, 'text');
+    }
+  } else {
+    aiSelectedSensors.delete(key);
+  }
+}
+
+async function runAiGenerate(mbg){
+  if(elems.length>0 && !confirm('This will replace all current elements. Continue?')){return;}
+  mbg.remove();
+  await generateAiTheme(aiSelectedVibe, [...aiSelectedSensors.entries()]);
+}
+
+// Slightly shift a hex color's hue/lightness so repeat generations of the
+// same vibe aren't pixel-identical. Keeps shifts subtle (±12 degrees hue).
+function jitterColor(hex){
+  hex=hex.replace('#','');
+  const r=parseInt(hex.slice(0,2),16)/255, g=parseInt(hex.slice(2,4),16)/255, b=parseInt(hex.slice(4,6),16)/255;
+  const a=hex.length>6?hex.slice(6,8):'ff';
+  let max=Math.max(r,g,b),min=Math.min(r,g,b),h,s,l=(max+min)/2;
+  const d=max-min;
+  if(d===0){h=0;s=0;}
+  else{
+    s=l>0.5?d/(2-max-min):d/(max+min);
+    if(max===r)h=((g-b)/d+(g<b?6:0));
+    else if(max===g)h=(b-r)/d+2;
+    else h=(r-g)/d+4;
+    h/=6;
+  }
+  h=(h+( (Math.random()-0.5)*24/360))%1; if(h<0)h+=1;
+  l=Math.max(0.15,Math.min(0.85,l+(Math.random()-0.5)*0.08));
+  const hue2rgb=(p,q,t)=>{if(t<0)t+=1;if(t>1)t-=1;if(t<1/6)return p+(q-p)*6*t;if(t<1/2)return q;if(t<2/3)return p+(q-p)*(2/3-t)*6;return p;};
+  let nr,ng,nb;
+  if(s===0){nr=ng=nb=l;}
+  else{
+    const q=l<0.5?l*(1+s):l+s-l*s, p=2*l-q;
+    nr=hue2rgb(p,q,h+1/3);ng=hue2rgb(p,q,h);nb=hue2rgb(p,q,h-1/3);
+  }
+  const toHex=v=>Math.round(v*255).toString(16).padStart(2,'0');
+  return '#'+toHex(nr)+toHex(ng)+toHex(nb)+a;
+}
+
+// ── Layout engine ─────────────────────────────────────────────────────────────
+// Rasterizes an SVG string to a PNG data URL via an offscreen canvas.
+// Needed because the tray app renders backgrounds with Pillow, which has
+// no SVG support — AI-generated backgrounds must be exported as PNG, not
+// raw SVG, or they render fine in the browser preview but silently fail
+// to load (and get skipped) when the .ds916theme file reaches the tray app.
+function svgToPngDataUrl(svgString, w, h){
+  return new Promise((resolve, reject)=>{
+    const svgUrl='data:image/svg+xml;base64,'+btoa(unescape(encodeURIComponent(svgString)));
+    const img=new Image();
+    img.onload=()=>{
+      try{
+        const canvas=document.createElement('canvas');
+        canvas.width=w; canvas.height=h;
+        const ctx=canvas.getContext('2d');
+        ctx.drawImage(img,0,0,w,h);
+        resolve(canvas.toDataURL('image/png'));
+      }catch(err){reject(err);}
+    };
+    img.onerror=(err)=>reject(err);
+    img.src=svgUrl;
+  });
+}
+
+async function generateAiTheme(vibeKey, sensorList){
+  const baseVibe=VIBES[vibeKey];
+  // Clone vibe with slight randomized color variance so repeat generations differ
+  const vibe={...baseVibe,
+    accent:jitterColor(baseVibe.accent),
+    accent2:jitterColor(baseVibe.accent2)};
+  clearAllSilent();
+
+  // Background — set a fallback solid color immediately so something is
+  // visible even before/if the background image finishes loading
+  const fallbackColors={
+    space:'#05050f',cyberpunk:'#1a0022',minimal:'#15151a',nature:'#16321c',
+    racing:'#1a0000',anime:'#2a0a3a',synthwave:'#1a0033',industrial:'#23262b',
+    ocean:'#003a52',monochrome:'#000000',volcanic:'#1a0500',aurora:'#04060a'
+  };
+  $('canvas').style.background=fallbackColors[vibeKey]||'#111114';
+
+  const svg=vibe.bg(CW,CH);
+  console.log('[AI Generate] SVG background length:', svg.length);
+
+  // Rasterize to PNG so the background works both in the live browser
+  // preview AND when the .ds916theme file is loaded by the Python tray
+  // app (which uses Pillow and cannot decode SVG).
+  let url, ext='png';
+  try{
+    url=await svgToPngDataUrl(svg, CW, CH);
+    console.log('[AI Generate] Background rasterized to PNG, length:', url.length);
+  }catch(err){
+    console.log('[AI Generate] PNG rasterization failed, falling back to SVG (browser-preview only):', err);
+    url='data:image/svg+xml;base64,'+btoa(unescape(encodeURIComponent(svg)));
+    ext='svg';
+  }
+  backData={name:'ai_'+vibeKey+'.'+ext,isVideo:false,data:url};
+  showBg(url,'ai_'+vibeKey+'.'+ext,false);
+
+  themeColors=[vibe.accent,vibe.accent2,vibe.text,vibe.sub];
+
+  const margin=Math.round(CW*0.06);
+  const usableW=CW-margin*2;
+  console.log('[AI Generate] Canvas:', CW, 'x', CH, 'margin:', margin, 'orientation:', ori);
+
+  if(ori==='vertical'){
+    layoutVertical(vibe, sensorList, margin, usableW);
+  } else {
+    layoutHorizontal(vibe, sensorList, margin, usableW);
+  }
+
+  console.log('[AI Generate] Elements created:', elems.length, elems.map(e=>e.type));
+
+  refreshLayers();updStatus();setTimeout(()=>chZoom(0),80);
+  toast(`✨ Generated "${vibe.label}" theme with ${sensorList.length} sensors`);
+}
+
+function mkClock(x,y,w,vibe){
+  const fs=Math.round(w*0.16);
+  const el={id:genId(),type:'clock',sensorKey:'',x,y,z:nextZ(),visible:true,
+    w,h:fs*1.3,fontSize:fs,fontFamily:vibe.font,color:vibe.text,bold:true,
+    align:'center',clockFormat:'12h',clockSeconds:false,manualSize:false};
+  elems.push(el);renderEl(el);
+  return el;
+}
+function mkDate(x,y,w,vibe){
+  const fs=Math.round(w*0.045);
+  const el={id:genId(),type:'date',sensorKey:'',x,y,z:nextZ(),visible:true,
+    w,h:fs*1.4,fontSize:fs,fontFamily:vibe.font,color:vibe.sub,bold:false,
+    align:'center',dateFormat:'DD MMMM, YYYY',manualSize:false};
+  elems.push(el);renderEl(el);
+  return el;
+}
+function mkLabel(x,y,w,text,vibe){
+  const fs=Math.max(12,Math.round(w*0.075));
+  const el={id:genId(),type:'static',sensorKey:'',x,y,z:nextZ(),visible:true,
+    customText:text.toUpperCase(),w,h:fs*1.3,fontSize:fs,fontFamily:vibe.font,
+    color:vibe.sub,bold:false,align:'left',manualSize:false};
+  elems.push(el);renderEl(el);
+  return el;
+}
+function mkRing(x,y,d,key,vibe){
+  const s=SEN[key];
+  // Label above the ring so it's clear which sensor this is
+  const lblFs=Math.max(11,Math.round(d*0.085));
+  const lbl={id:genId(),type:'static',sensorKey:'',x,y,z:nextZ(),visible:true,
+    customText:s.l.toUpperCase(),w:d,h:lblFs*1.4,fontSize:lblFs,fontFamily:vibe.font,
+    color:vibe.sub,bold:false,align:'center',manualSize:false};
+  elems.push(lbl);renderEl(lbl);
+  const ringY=y+lblFs*1.6;
+  const el={id:genId(),type:'ring',sensorKey:key,x,y:ringY,z:nextZ(),visible:true,
+    w:d,h:d,ringWidth:Math.round(d*0.09),maxValue:s.max||100,
+    arcColor:vibe.accent,trackColor:vibe.sub.slice(0,7)+'33',showLabel:true,
+    labelColor:vibe.text,labelFontSize:Math.round(d*0.22),labelFontFamily:vibe.font,
+    labelBold:true,unit:s.u||'',manualSize:true};
+  elems.push(el);renderEl(el);
+  return {h:lblFs*1.6+d, w:d};
+}
+function mkTextRow(x,y,w,key,vibe){
+  // label + value stacked compactly, with bar underneath if applicable
+  const fsLbl=Math.max(11,Math.round(w*0.07));
+  const fsVal=Math.max(16,Math.round(w*0.12));
+  const s=SEN[key];
+  const lbl={id:genId(),type:'static',sensorKey:'',x,y,z:nextZ(),visible:true,
+    customText:s.l.toUpperCase(),w,h:fsLbl*1.3,fontSize:fsLbl,fontFamily:vibe.font,
+    color:vibe.sub,bold:false,align:'left',manualSize:false};
+  elems.push(lbl);renderEl(lbl);
+  const val={id:genId(),type:'text',sensorKey:key,unit:s.u||'',x,y:y+fsLbl*1.5,
+    z:nextZ(),visible:true,w,h:fsVal*1.3,fontSize:fsVal,fontFamily:vibe.font,
+    color:vibe.text,bold:true,align:'left',prefix:'',manualSize:false};
+  elems.push(val);renderEl(val);
+  const barY=y+fsLbl*1.5+fsVal*1.4;
+  if(s.max!==null){
+    const bar={id:genId(),type:'bar',sensorKey:key,x,y:barY,z:nextZ(),visible:true,
+      w,h:Math.max(4,Math.round(w*0.03)),fillColor:vibe.accent,bgColor:vibe.sub.slice(0,7)+'22',
+      borderColor:'#00000000',borderThickness:0,cornerRadius:vibe.corner>2?4:0,
+      maxValue:s.max,manualSize:true};
+    elems.push(bar);renderEl(bar);
+    return barY+12;
+  }
+  return barY;
+}
+function mkBigBar(x,y,w,key,vibe){
+  // Standalone labeled bar — taller, used as a primary display type (not the compact row version)
+  const s=SEN[key];
+  const fsLbl=Math.max(11,Math.round(w*0.06));
+  const lbl={id:genId(),type:'static',sensorKey:'',x,y,z:nextZ(),visible:true,
+    customText:s.l.toUpperCase(),w,h:fsLbl*1.3,fontSize:fsLbl,fontFamily:vibe.font,
+    color:vibe.sub,bold:false,align:'left',manualSize:false};
+  elems.push(lbl);renderEl(lbl);
+  const barY=y+fsLbl*1.5;
+  const barH=Math.max(14,Math.round(w*0.045));
+  const bar={id:genId(),type:'bar',sensorKey:key,x,y:barY,z:nextZ(),visible:true,
+    w,h:barH,fillColor:vibe.accent,bgColor:vibe.sub.slice(0,7)+'22',
+    borderColor:'#00000000',borderThickness:0,cornerRadius:vibe.corner>4?barH/2:3,
+    maxValue:s.max||100,manualSize:true};
+  elems.push(bar);renderEl(bar);
+  return {h:fsLbl*1.5+barH, w};
+}
+function mkGraph(x,y,w,h,key,vibe){
+  const s=SEN[key];
+  const fsLbl=Math.max(11,Math.round(w*0.05));
+  const lbl={id:genId(),type:'static',sensorKey:'',x,y,z:nextZ(),visible:true,
+    customText:s.l.toUpperCase(),w,h:fsLbl*1.3,fontSize:fsLbl,fontFamily:vibe.font,
+    color:vibe.sub,bold:false,align:'left',manualSize:false};
+  elems.push(lbl);renderEl(lbl);
+  const gY=y+fsLbl*1.5;
+  const gH=h-fsLbl*1.5;
+  const graph={id:genId(),type:'linegraph',sensorKey:key,x,y:gY,z:nextZ(),visible:true,
+    w,h:gH,maxValue:s.max||100,lineColor:vibe.accent,bgColor:vibe.sub.slice(0,7)+'18',
+    showGrid:true,gridColor:vibe.sub.slice(0,7)+'22',historySeconds:60,manualSize:true};
+  elems.push(graph);renderEl(graph);
+  return {h:fsLbl*1.5+gH, w};
+}
+function mkDivider(x,y,w,vibe){
+  const div={id:genId(),type:'rect',sensorKey:'',x,y,z:nextZ(),visible:true,
+    w,h:1.5,fillColor:vibe.sub.slice(0,7)+'40',cornerRadius:0,manualSize:true};
+  elems.push(div);renderEl(div);
+  return 1.5;
+}
+
+// ── Layout templates ──────────────────────────────────────────────────────────
+// Multiple genuinely different structures per orientation, picked at random
+// each generation so repeat AI Generate calls produce visibly different results.
+
+function layoutVertical(vibe, sensorList, margin, usableW){
+  const templates=['rings-top','stacked-bars','mixed-graph','single-column'];
+  const tmpl=templates[Math.floor(Math.random()*templates.length)];
+  console.log('[AI Generate] Vertical template:', tmpl);
+
+  let y=margin;
+  const clk=mkClock(margin,y,usableW,vibe); y+=clk.h+4;
+  const dt=mkDate(margin,y,usableW,vibe); y+=dt.h+margin*0.8;
+
+  const ringKeys=sensorList.filter(([k,t])=>t==='ring').map(([k])=>k);
+  const barKeys=sensorList.filter(([k,t])=>t==='bar').map(([k])=>k);
+  const graphKeys=sensorList.filter(([k,t])=>t==='graph').map(([k])=>k);
+  const textKeys=sensorList.filter(([k,t])=>t==='text').map(([k])=>k);
+  // Treat any ring/bar without explicit graph as part of the "featured" group
+  const featured=[...ringKeys,...barKeys];
+  const shuffledText=[...textKeys];
+  if(Math.random()<0.5) shuffledText.sort(()=>Math.random()-0.5);
+  const showDivider=Math.random()<0.45;
+
+  if(tmpl==='rings-top'){
+    // Two rings side by side, then 2-col grid of remaining sensors
+    if(featured.length>0){
+      const ringScale=0.92+Math.random()*0.16;
+      const ringD=Math.round((featured.length===1?usableW*0.5:usableW*0.38)*ringScale);
+      const gap=usableW-ringD*Math.min(2,featured.length);
+      featured.slice(0,2).forEach((key,i)=>{
+        mkRing(margin+i*(ringD+gap),y,ringD,key,vibe);
+      });
+      y+=ringD+Math.max(11,Math.round(ringD*0.085))*1.6+margin*0.9;
+    }
+    if(showDivider){y+=mkDivider(margin,y,usableW,vibe)+margin*0.6;}
+    const colW=Math.round((usableW-margin*0.5)/2);
+    let leftY=y, rightY=y;
+    [...shuffledText,...featured.slice(2)].forEach((key,i)=>{
+      if(i%2===0) leftY=mkTextRow(margin,leftY,colW,key,vibe)+margin*0.6;
+      else rightY=mkTextRow(margin+colW+margin*0.5,rightY,colW,key,vibe)+margin*0.6;
+    });
+
+  } else if(tmpl==='stacked-bars'){
+    // All featured sensors as big standalone bars, stacked vertically, then text grid
+    featured.forEach(key=>{
+      const r=mkBigBar(margin,y,usableW,key,vibe);
+      y+=r.h+margin*0.5;
+    });
+    if(showDivider && (featured.length>0)){y+=mkDivider(margin,y,usableW,vibe)+margin*0.5;}
+    const colW=Math.round((usableW-margin*0.5)/2);
+    let leftY=y, rightY=y;
+    shuffledText.forEach((key,i)=>{
+      if(i%2===0) leftY=mkTextRow(margin,leftY,colW,key,vibe)+margin*0.6;
+      else rightY=mkTextRow(margin+colW+margin*0.5,rightY,colW,key,vibe)+margin*0.6;
+    });
+
+  } else if(tmpl==='mixed-graph'){
+    // One ring (hero), one full-width graph, remaining as single-column rows
+    if(featured.length>0){
+      const ringD=Math.round(usableW*0.46);
+      mkRing(Math.round(margin+(usableW-ringD)/2),y,ringD,featured[0],vibe);
+      y+=ringD+Math.max(11,Math.round(ringD*0.085))*1.6+margin*0.7;
+    }
+    const graphH=Math.round(usableW*0.32);
+    const graphKey=featured[1]||graphKeys[0]||shuffledText[0];
+    if(graphKey){
+      const r=mkGraph(margin,y,usableW,graphH,graphKey,vibe);
+      y+=r.h+margin*0.7;
+      shuffledText.splice(shuffledText.indexOf(graphKey),1);
+    }
+    if(showDivider){y+=mkDivider(margin,y,usableW,vibe)+margin*0.5;}
+    shuffledText.forEach(key=>{
+      y=mkTextRow(margin,y,usableW,key,vibe)+margin*0.5;
+    });
+
+  } else { // single-column
+    // Everything in one full-width column: featured items get rings if room,
+    // otherwise compact rows; cleaner, simpler look
+    const all=[...featured,...shuffledText];
+    let ringBudget=Math.min(1,featured.length); // only first featured as a ring here
+    all.forEach((key,i)=>{
+      if(i===0 && featured.includes(key) && ringBudget>0){
+        const ringD=Math.round(usableW*0.42);
+        mkRing(Math.round(margin+(usableW-ringD)/2),y,ringD,key,vibe);
+        y+=ringD+Math.max(11,Math.round(ringD*0.085))*1.6+margin*0.7;
+        ringBudget--;
+      } else {
+        y=mkTextRow(margin,y,usableW,key,vibe)+margin*0.45;
+      }
+    });
+  }
+}
+
+function layoutHorizontal(vibe, sensorList, margin, usableW){
+  const templates=['rings-mid','bars-right','graph-bottom'];
+  const tmpl=templates[Math.floor(Math.random()*templates.length)];
+  console.log('[AI Generate] Horizontal template:', tmpl);
+
+  const ringKeys=sensorList.filter(([k,t])=>t==='ring').map(([k])=>k);
+  const barKeys=sensorList.filter(([k,t])=>t==='bar').map(([k])=>k);
+  const featured=[...ringKeys,...barKeys];
+  const textKeys=sensorList.filter(([k,t])=>t==='text').map(([k])=>k);
+  const shuffledText=[...textKeys];
+  if(Math.random()<0.5) shuffledText.sort(()=>Math.random()-0.5);
+
+  let x=margin;
+  const colW=Math.round(usableW*0.2);
+  const clk=mkClock(x,margin,colW,vibe);
+  const dt=mkDate(x,margin+clk.h+4,colW,vibe);
+  x+=colW+margin;
+
+  // Helper: lay out text rows in as many columns as needed to fit CH,
+  // wrapping to a new column instead of overflowing the bottom
+  const ROW_H_EST=row=>{
+    const fsLbl=Math.max(11,Math.round(row*0.07)), fsVal=Math.max(16,Math.round(row*0.12));
+    return fsLbl*1.5+fsVal*1.4+12+margin*0.4;
+  };
+  function layoutTextColumns(startX, startY, availW, availH, keys){
+    if(keys.length===0||availW<=60) return startX;
+    // Estimate how many rows fit per column
+    const rowH=ROW_H_EST(Math.min(availW,200));
+    const rowsPerCol=Math.max(1,Math.floor((availH-startY)/rowH));
+    const nCols=Math.max(1,Math.ceil(keys.length/rowsPerCol));
+    const colW=Math.min(220,Math.floor((availW-margin*0.5*(nCols-1))/nCols));
+    let idx=0,maxX=startX;
+    for(let c=0;c<nCols;c++){
+      let cy=startY;
+      const cx=startX+c*(colW+margin*0.5);
+      for(let r=0;r<rowsPerCol && idx<keys.length;r++,idx++){
+        cy=mkTextRow(cx,cy,colW,keys[idx],vibe)+margin*0.4;
+      }
+      maxX=Math.max(maxX,cx+colW);
+    }
+    return maxX;
+  }
+
+  if(tmpl==='rings-mid'){
+    if(featured.length>0){
+      const ringScale=0.92+Math.random()*0.16;
+      const ringD=Math.round(CH*0.46*ringScale);
+      const labelH=Math.max(11,Math.round(ringD*0.085))*1.6;
+      const ringY=Math.round((CH-ringD-labelH)/2);
+      featured.slice(0,3).forEach(key=>{
+        mkRing(x,ringY,ringD,key,vibe);
+        x+=ringD+margin*0.6;
+      });
+    }
+    const remainW=CW-x-margin;
+    layoutTextColumns(x,margin,remainW,CH-margin,shuffledText);
+
+  } else if(tmpl==='bars-right'){
+    // Big bars stacked in a middle column (only as many as fit), text after
+    const barColW=Math.round(usableW*0.32);
+    const barH=ROW_H_EST(barColW)*0.75;
+    const maxBars=Math.max(1,Math.floor((CH-margin*2)/barH));
+    let by=margin;
+    featured.slice(0,maxBars).forEach(key=>{
+      const r=mkBigBar(x,by,barColW,key,vibe);
+      by+=r.h+margin*0.5;
+    });
+    // Any leftover featured sensors fall through to text columns
+    const overflowFeatured=featured.slice(maxBars);
+    x+=barColW+margin;
+    const remainW=CW-x-margin;
+    layoutTextColumns(x,margin,remainW,CH-margin,[...shuffledText,...overflowFeatured]);
+
+  } else { // graph-bottom
+    const topH=Math.round(CH*0.62);
+    if(featured.length>0){
+      const ringD=Math.round(topH*0.7);
+      const labelH=Math.max(11,Math.round(ringD*0.085))*1.6;
+      const ringY=Math.round((topH-ringD-labelH)/2)+margin*0.3;
+      featured.slice(0,2).forEach(key=>{
+        mkRing(x,ringY,ringD,key,vibe);
+        x+=ringD+margin*0.6;
+      });
+    }
+    const remainW=CW-x-margin;
+    const graphKey=featured[2]||shuffledText[shuffledText.length-1];
+    const textForTop=graphKey?shuffledText.filter(k=>k!==graphKey):shuffledText;
+    layoutTextColumns(x,margin,remainW,topH,textForTop);
+    if(graphKey){
+      mkGraph(margin,topH+margin*0.5,usableW,CH-topH-margin*1.5,graphKey,vibe);
+    }
+  }
+}
+
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+buildPalette();
+setOri('vertical');
+setTimeout(()=>chZoom(0),100);
+refreshLayers();updStatus();
+// Prompt to import sensor list on first load (after short delay so UI is ready)
+setTimeout(()=>promptSensorImport(), 600);
+</script>
+</body>
+</html>
