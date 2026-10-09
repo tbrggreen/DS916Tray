@@ -1,6 +1,6 @@
 # Changelog
 
-## [35.0] - 2026-10-09
+## v35.0.0 - 2026-10-09
 
 ### Added
 - Added a configurable RTSS FPS threshold for automatic Gaming mode activation.
