@@ -582,6 +582,21 @@ _weather_last_fetch = 0.0
 _weather_last_success = 0.0
 _weather_cache = {'WEATHER_UPDATED_TEXT': 'Обновлено: —', 'WEATHER_TEMP': '—', 'WEATHER_FEELS_TEXT': 'Ощущается как: — °C', 'WEATHER_DESC': 'Загрузка погоды…', 'WEATHER_DETAIL': 'Подключение к сервису', 'WEATHER_CODE': -1, 'WEATHER_IS_DAY': 1, 'WEATHER_SUN_TEXT': 'Рассвет —  |  Закат —'}
 
+# Temporary visual QA mode: cycles representative weather illustrations without
+# changing the user's configured city or persisted live-weather cache.
+_WEATHER_PREVIEW_SCENES = [
+    {'name': 'Clear day', 'code': 0, 'day': 1, 'desc': 'Тест: ясно, день'},
+    {'name': 'Clear night', 'code': 0, 'day': 0, 'desc': 'Тест: ясно, ночь'},
+    {'name': 'Cloudy', 'code': 3, 'day': 1, 'desc': 'Тест: облачно'},
+    {'name': 'Fog', 'code': 45, 'day': 1, 'desc': 'Тест: туман'},
+    {'name': 'Rain', 'code': 63, 'day': 1, 'desc': 'Тест: дождь'},
+    {'name': 'Heavy rain', 'code': 65, 'day': 1, 'desc': 'Тест: сильный дождь'},
+    {'name': 'Snow', 'code': 73, 'day': 1, 'desc': 'Тест: снег'},
+    {'name': 'Heavy snow', 'code': 75, 'day': 1, 'desc': 'Тест: сильный снег'},
+    {'name': 'Thunderstorm', 'code': 95, 'day': 1, 'desc': 'Тест: гроза'},
+]
+_weather_preview_index = None
+
 _WEATHER_CODES_RU = {
     0: 'Ясно', 1: 'Преимущественно ясно', 2: 'Переменная облачность', 3: 'Пасмурно',
     45: 'Туман', 48: 'Изморозевый туман', 51: 'Морось', 53: 'Морось', 55: 'Сильная морось',
@@ -770,6 +785,13 @@ def _collect_system_metrics():
         if now_mono - _weather_last_fetch >= weather_interval:
             _fetch_weather()
         values.update(_weather_cache)
+        down_text = values.get('NET_DOWN_TEXT', '↓ —')
+        up_text = values.get('NET_UP_TEXT', '↑ —')
+        values['NET_SUMMARY_TEXT'] = f'↓ {down_text}   ↑ {up_text}'
+        if values.get('NET_PING') is not None:
+            values['NET_PING_TEXT'] = f'PING  {values["NET_PING"]} ms'
+        else:
+            values['NET_PING_TEXT'] = 'PING  —'
         with _system_metrics_lock:
             _system_metrics = values
         time.sleep(2.0)
@@ -1320,6 +1342,60 @@ def render_frame(theme, sensors):
     def sv(key, default=0):
         return sensors.get(key, default)
 
+    def draw_weather_panel(panel_x, panel_y, panel_w, panel_h, code, is_day, radius=16):
+        """Paint a weather-aware sky card, with night sky/moon/stars or daytime clouds."""
+        import math
+        # Palette and cloud density are intentionally distinct between day/night.
+        if not is_day:
+            top = (7, 15, 39, 255) if code in (0, 1) else (11, 24, 51, 255)
+            bottom = (17, 36, 69, 255) if code in (0, 1) else (27, 43, 69, 255)
+        elif code == 2:
+            top, bottom = (69, 151, 220, 255), (133, 194, 237, 255)
+        elif code == 3:
+            top, bottom = (94, 119, 145, 255), (136, 154, 174, 255)
+        elif code in (45, 48):
+            top, bottom = (117, 139, 157, 255), (169, 183, 193, 255)
+        elif code in (51,53,55,56,57,61,63,65,66,67,80,81,82):
+            top, bottom = ((25, 83, 122, 255), (56, 119, 157, 255)) if is_day else ((9, 25, 46, 255), (17, 45, 67, 255))
+        elif code in (71,73,75,77,85,86):
+            top, bottom = ((93, 139, 174, 255), (167, 198, 216, 255)) if is_day else ((12, 27, 49, 255), (28, 46, 66, 255))
+        elif code in (95,96,99):
+            top, bottom = ((65, 70, 113, 255), (105, 115, 151, 255)) if is_day else ((13, 16, 42, 255), (35, 31, 67, 255))
+        else:
+            top, bottom = (35, 111, 190, 255), (80, 159, 218, 255)
+        panel = Image.new('RGBA', (max(1,panel_w), max(1,panel_h)), (0,0,0,0))
+        pd = ImageDraw.Draw(panel, 'RGBA')
+        for yy in range(panel_h):
+            f = yy / max(1, panel_h - 1)
+            col = tuple(int(top[i] * (1-f) + bottom[i] * f) for i in range(4))
+            pd.line((0, yy, panel_w, yy), fill=col)
+        # A soft horizon of clouds for variable-cloud conditions, at the upper edge
+        # so that it reads as sky without obscuring the weather text below.
+        if code in (1, 2, 3):
+            cloud_col = (221, 235, 247, 105) if is_day else (117, 143, 179, 125)
+            base_y = max(16, min(58, panel_h // 7))
+            for ox, oy, scale in ((int(panel_w*.15), base_y, .7), (int(panel_w*.43), base_y-9, 1.25), (int(panel_w*.83), base_y+4, .65)):
+                rr = int(19*scale)
+                pd.ellipse((ox-rr*2,oy-rr,ox+rr,oy+rr), fill=cloud_col)
+                pd.ellipse((ox-rr,oy-rr*2,ox+rr*2,oy+rr), fill=cloud_col)
+                pd.ellipse((ox,oy-rr,ox+rr*2,oy+rr), fill=cloud_col)
+                pd.rounded_rectangle((ox-rr*2,oy,ox+rr*2,oy+rr), radius=max(2,rr//2), fill=cloud_col)
+        if not is_day and code in (0, 1, 2):
+            # Small moon and restrained star field at the top of the card.
+            mx, my = int(panel_w*.82), max(23, min(48, panel_h//9))
+            mr = max(9, min(17, panel_w//28))
+            pd.ellipse((mx-mr,my-mr,mx+mr,my+mr), fill=(239,244,255,245))
+            pd.ellipse((mx-mr//3,my-mr-3,mx+mr+mr//2,my+mr//2), fill=top)
+            for i in range(10):
+                sx = (int(panel_w*(.08 + ((i*37)%79)/100)) % max(1,panel_w-4))
+                sy = 7 + (i*17) % max(8,min(54,panel_h//5))
+                sr = 1 if i%3 else 2
+                pd.ellipse((sx-sr,sy-sr,sx+sr,sy+sr), fill=(238,246,255,205))
+        # Rounded alpha mask prevents gradient/clouds from escaping the panel.
+        mask = Image.new('L', panel.size, 0)
+        ImageDraw.Draw(mask).rounded_rectangle((0,0,panel_w-1,panel_h-1), radius=min(radius,panel_w//2,panel_h//2), fill=255)
+        img.paste(panel.convert('RGB'), (panel_x,panel_y), mask)
+
     # Render only elements assigned to the active auto-screen; untagged legacy themes remain unchanged.
     active_mode = sensors.get('_DISPLAY_MODE', 'gaming')
     elements = [e for e in theme.get('elements', []) if e.get('screenMode') in (None, 'all', active_mode)]
@@ -1372,11 +1448,11 @@ def render_frame(theme, sensors):
                 text = weekdays[now.weekday()] if wfmt=='full' else weekdays_short[now.weekday()]
             elif typ=='static':
                 text = el.get('customText','Label')
-                # Weather heading follows the city selected in Settings.
-                if isinstance(text, str) and re.match(r'^ПОГОДА\s*/\s*', text, re.IGNORECASE):
+                # Work weather heading shows only the city name; no label and no marquee.
+                if el.get('id') == 'work_weather_title':
                     live_city = sensors.get('WEATHER_CITY')
                     if isinstance(live_city, str) and live_city.strip():
-                        text = re.sub(r'^(ПОГОДА\s*/\s*).+$', lambda m: m.group(1) + live_city.strip().upper(), text, flags=re.IGNORECASE)
+                        text = live_city.strip().upper()
             else:  # sensor value text
                 sensor_key = el.get('sensorKey','')
                 raw = sensors.get(sensor_key, None)
@@ -1406,8 +1482,12 @@ def render_frame(theme, sensors):
                 player_field = 'artist'
             full_value = None
             if player_field:
-                source_key = 'NOW_PLAYING_TITLE' if player_field == 'title' else 'NOW_PLAYING_ARTIST'
-                full_value = str(sensors.get(source_key, text) or '')
+                if player_field == 'title':
+                    source_key = 'NOW_PLAYING_TITLE'
+                    full_value = str(sensors.get(source_key, text) or '')
+                elif player_field == 'artist':
+                    source_key = 'NOW_PLAYING_ARTIST'
+                    full_value = str(sensors.get(source_key, text) or '')
                 text = full_value
             try:
                 bbox = draw.textbbox((0,0), text, font=font)
@@ -1449,6 +1529,10 @@ def render_frame(theme, sensors):
             thick   = int(el.get('borderThickness', 0))
             bg_c    = color_rgba(el.get('bgColor','#1a1a2299'))
             fill_c  = color_rgba(el.get('fillColor','#00b4ffff'))
+            # Disk bars share one normal color and turn red when free space is below 10%.
+            sensor_key = str(el.get('sensorKey', ''))
+            if sensor_key.startswith('DISK_') and sensor_key.endswith('_USED_PCT') and raw_val >= 90:
+                fill_c = color_rgba('#ff304fff')
             bord_c  = color_rgba(el.get('borderColor','#00000000'))
             style   = el.get('barStyle','solid')
 
@@ -1644,53 +1728,64 @@ def render_frame(theme, sensors):
                     draw.text((int(cx-tw/2), cy-12), label, font=df, fill=txtc)
 
         elif typ=='weathericon':
-            # Compact animated weather glyph for the gaming footer row.
+            # Compact weather glyph follows the global decorative-animation toggle too.
             import math
-            phase = time.monotonic()
+            phase = time.monotonic() if cfg.get('decorative_animation', True) else 0.0
             wc = int(sensors.get('WEATHER_CODE', -1) or -1)
             day = bool(int(sensors.get('WEATHER_IS_DAY', 1) or 0))
             cx, cy = x + w//2, y + h//2
+            # Glyph is authored around a 68 px canvas; scale its drawing to the theme element.
+            _ws = min(w, h) / 68.0
+            def _wp(v): return int(round(v * _ws))
             if wc in (0, 1, 2, 3, -1):
                 if day:
-                    draw.ellipse((cx-15,cy-22,cx+15,cy+8),fill=(255,190,55,255))
+                    draw.ellipse((cx-_wp(15),cy-_wp(22),cx+_wp(15),cy+_wp(8)),fill=(255,190,55,255))
                     for a in range(8):
                         ang=a*math.pi/4+phase*0.12
-                        draw.line((cx+int(19*math.cos(ang)),cy-7+int(19*math.sin(ang)),cx+int(26*math.cos(ang)),cy-7+int(26*math.sin(ang))),fill=(255,208,90,255),width=2)
+                        draw.line((cx+int(_wp(19)*math.cos(ang)),cy-_wp(7)+int(_wp(19)*math.sin(ang)),cx+int(_wp(26)*math.cos(ang)),cy-_wp(7)+int(_wp(26)*math.sin(ang))),fill=(255,208,90,255),width=max(1,_wp(2)))
                 else:
-                    draw.ellipse((cx-15,cy-19,cx+15,cy+11),fill=(215,230,255,255))
-                    draw.ellipse((cx-5,cy-24,cx+22,cy+4),fill=(25,16,26,255))
+                    draw.ellipse((cx-_wp(15),cy-_wp(19),cx+_wp(15),cy+_wp(11)),fill=(215,230,255,255))
+                    draw.ellipse((cx-_wp(5),cy-_wp(24),cx+_wp(22),cy+_wp(4)),fill=(25,16,26,255))
             if wc in (2,3,45,48,51,53,55,56,57,61,63,65,66,67,80,81,82,71,73,75,77,85,86,95,96,99,-1):
                 cloud=(205,218,235,255) if wc not in (45,48) else (155,170,190,255)
-                draw.ellipse((cx-28,cy-2,cx-5,cy+20),fill=cloud)
-                draw.ellipse((cx-16,cy-14,cx+10,cy+21),fill=cloud)
-                draw.ellipse((cx+1,cy-5,cx+27,cy+20),fill=cloud)
-                draw.rounded_rectangle((cx-23,cy+4,cx+21,cy+21),radius=6,fill=cloud)
+                draw.ellipse((cx-_wp(28),cy-_wp(2),cx-_wp(5),cy+_wp(20)),fill=cloud)
+                draw.ellipse((cx-_wp(16),cy-_wp(14),cx+_wp(10),cy+_wp(21)),fill=cloud)
+                draw.ellipse((cx+_wp(1),cy-_wp(5),cx+_wp(27),cy+_wp(20)),fill=cloud)
+                draw.rounded_rectangle((cx-_wp(23),cy+_wp(4),cx+_wp(21),cy+_wp(21)),radius=max(1,_wp(6)),fill=cloud)
             if wc in (51,53,55,56,57,61,63,65,66,67,80,81,82,95,96,99):
                 for i in range(3):
-                    xx=cx-13+i*13
-                    yy=cy+24+int((phase*32+i*9)%9)
-                    draw.line((xx,yy,xx-4,yy+7),fill=(80,180,255,255),width=2)
+                    xx=cx-_wp(13)+i*_wp(13)
+                    yy=cy+_wp(24)+_wp(int((phase*32+i*9)%9))
+                    draw.line((xx,yy,xx-_wp(4),yy+_wp(7)),fill=(80,180,255,255),width=max(1,_wp(2)))
             elif wc in (71,73,75,77,85,86):
                 for i in range(4):
-                    xx=cx-15+i*10
-                    yy=cy+24+int((phase*18+i*7)%8)
-                    draw.ellipse((xx-2,yy-2,xx+2,yy+2),fill=(245,250,255,255))
+                    xx=cx-_wp(15)+i*_wp(10)
+                    yy=cy+_wp(24)+_wp(int((phase*18+i*7)%8))
+                    draw.ellipse((xx-_wp(2),yy-_wp(2),xx+_wp(2),yy+_wp(2)),fill=(245,250,255,255))
 
         elif typ=='rect':
             _rect_fill = el.get('fillColor', '#00000000')
-            if el.get('id') in ('idle_weather_card', 'work_date_card'):
-                _wc = int(sensors.get('WEATHER_CODE', -1) or -1)
-                _day = bool(int(sensors.get('WEATHER_IS_DAY', 1) or 0))
-                if _wc in (95, 96, 99): _rect_fill = '#4a246fff' if _day else '#24183fff'
-                elif _wc in (71, 73, 75, 77, 85, 86): _rect_fill = '#34536fff' if _day else '#1d2d46ff'
-                elif _wc in (51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82): _rect_fill = '#126b8aff' if _day else '#10354fff'
-                elif _wc in (45, 48): _rect_fill = '#65758aff' if _day else '#343e55ff'
-                elif _wc in (2, 3): _rect_fill = '#386cb0ff' if _day else '#202c64ff'
-                elif _wc in (0, 1): _rect_fill = '#1672d4ff' if _day else '#111e5aff'
-            fill_c = color_rgba(_rect_fill)
-            rad    = int(el.get('cornerRadius',0))
-            if rad>0: draw.rounded_rectangle([x,y,x+w,y+h],radius=rad,fill=fill_c)
-            else:     draw.rectangle([x,y,x+w,y+h],fill=fill_c)
+            _eid = str(el.get('id', '')).lower()
+            _is_weather_panel = (_eid in ('idle_weather_card', 'work_date_card', 'clockcard', 'work_weather_card', 'game_weather_card') or 'weather_card' in _eid)
+            if _is_weather_panel:
+                _wc_raw = sensors.get('WEATHER_CODE', -1)
+                _wc = int(_wc_raw) if _wc_raw is not None else -1
+                _day_raw = sensors.get('WEATHER_IS_DAY', 1)
+                _day = bool(int(_day_raw)) if _day_raw is not None else True
+                _rad = int(el.get('cornerRadius', 16))
+                draw_weather_panel(x, y, w, h, _wc, _day, _rad)
+                # Dark translucent glass keeps text legible while preserving the sky artwork.
+                glass = ImageDraw.Draw(img, 'RGBA')
+                glass_color = (4, 12, 30, 118 if _eid == 'idle_weather_card' else 88)
+                if _rad > 0:
+                    glass.rounded_rectangle((x, y, x+w-1, y+h-1), radius=_rad, fill=glass_color)
+                else:
+                    glass.rectangle((x, y, x+w-1, y+h-1), fill=glass_color)
+            else:
+                fill_c = color_rgba(_rect_fill)
+                rad    = int(el.get('cornerRadius',0))
+                if rad>0: draw.rounded_rectangle([x,y,x+w,y+h],radius=rad,fill=fill_c)
+                else:     draw.rectangle([x,y,x+w,y+h],fill=fill_c)
 
         elif typ=='image':
             # Image layers are loaded at theme load time
@@ -1755,7 +1850,8 @@ def render_frame(theme, sensors):
                 for i in range(count):
                     wave = (math.sin(phase + i * 0.77) + 1) / 2
                     wave2 = (math.sin(phase * 0.67 - i * 0.43) + 1) / 2
-                    bh = max(3, int(max_h * (0.14 + 0.82 * (0.62*wave + 0.38*wave2))))
+                    raw_h = max_h * (0.14 + 0.82 * (0.62*wave + 0.38*wave2))
+                    bh = max(4, int(round(raw_h / max(1, max_h / 7))) * max(1, max_h // 7))
                     levels.append(bh)
                 state['levels'] = levels
                 state['playing'] = True
@@ -1775,68 +1871,198 @@ def render_frame(theme, sensors):
             for i, bh in enumerate(levels):
                 bx = x + i * (bar_w + gap)
                 by = y + max_h - bh
-                draw.rounded_rectangle((bx, by, bx+bar_w, y+max_h),
-                                       radius=max(1, bar_w//3),
-                                       fill=color)
+                draw.rectangle((bx, by, bx+bar_w, y+max_h), fill=color)
 
-    # Large animated weather illustration in the lower weather panel. No decorative particle strip.
+    # Weather artwork and decorative particles. The single option freezes every
+    # animated component in place when decorative_animation is disabled.
     if active_mode in ('idle', 'work'):
         try:
             import math
+            weather_base = img.copy() if active_mode == 'work' else None
             anim = ImageDraw.Draw(img, 'RGBA')
-            # Freeze decorative weather artwork in place when animation is disabled.
-            phase = time.monotonic() if cfg.get('decorative_animation', True) else 0.0
+            animated = bool(cfg.get('decorative_animation', True))
+            t = time.monotonic() if animated else 0.0
+            # A zero phase produces a stable, repeatable frame with all effects visible.
             code_raw = sensors.get('WEATHER_CODE', -1)
             code = int(code_raw) if code_raw is not None else -1
             is_day = bool(int(sensors.get('WEATHER_IS_DAY', 1) or 0))
-            cx, cy = W // 2, (1740 if active_mode == 'work' else 1420)
-            # Larger sun/moon, scaled for the tall 462x1920 display.
-            if code in (0, 1, 2, 3, -1):
+            now_month = datetime.now().month
+            season = ('winter' if now_month in (12, 1, 2) else
+                      'spring' if now_month in (3, 4, 5) else
+                      'summer' if now_month in (6, 7, 8) else 'autumn')
+            cx, cy = (W // 2 - 55 if active_mode == 'work' else W // 2), (1200 if active_mode == 'work' else 1420)
+            weather_scale = 0.34 if active_mode == 'work' else 1.0
+            clear_codes = (0, 1, 2, 3, -1)
+            snow_codes = (71, 73, 75, 77, 85, 86)
+            rain_codes = (51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82)
+            storm_codes = (95, 96, 99)
+            cloudy = code in (2, 3, 45, 48, *rain_codes, *snow_codes, *storm_codes, -1)
+
+            # Sun rays rotate; with animation disabled they remain at their initial angle.
+            if code in clear_codes:
                 if is_day:
-                    anim.ellipse((cx-72, cy-72, cx+72, cy+72), fill=(255,190,55,245))
+                    sun_r = int(72 * weather_scale)
+                    anim.ellipse((cx-sun_r, cy-sun_r, cx+sun_r, cy+sun_r), fill=(255,190,55,245))
                     for a in range(12):
-                        ang=a*math.pi/6+phase*0.10
-                        anim.line((cx+int(84*math.cos(ang)),cy+int(84*math.sin(ang)),cx+int(106*math.cos(ang)),cy+int(106*math.sin(ang))),fill=(255,208,90,230),width=5)
+                        ang = a * math.pi / 6 + t * 0.10
+                        x1 = cx + int(84 * weather_scale * math.cos(ang)); y1 = cy + int(84 * weather_scale * math.sin(ang))
+                        x2 = cx + int(106 * weather_scale * math.cos(ang)); y2 = cy + int(106 * weather_scale * math.sin(ang))
+                        anim.line((x1, y1, x2, y2), fill=(255,208,90,230), width=max(2, int(5 * weather_scale)))
                 else:
-                    anim.ellipse((cx-66,cy-66,cx+66,cy+66),fill=(215,230,255,245))
-                    anim.ellipse((cx-28,cy-88,cx+88,cy+28),fill=(7,21,47,255))
-            cloudy = code in (2,3,45,48,51,53,55,56,57,61,63,65,66,67,80,81,82,71,73,75,77,85,86,95,96,99,-1)
+                    # Moon stays in place; the crescent shadow gently drifts when animation is on.
+                    moon_r = int(66 * weather_scale)
+                    anim.ellipse((cx-moon_r, cy-moon_r, cx+moon_r, cy+moon_r), fill=(215,230,255,245))
+                    moon_dx = int(8 * weather_scale * math.sin(t * 0.35))
+                    anim.ellipse((cx-int(28*weather_scale)+moon_dx, cy-int(88*weather_scale), cx+int(88*weather_scale)+moon_dx, cy+int(28*weather_scale)), fill=(7,21,47,255))
+
+            # Clouds drift gently horizontally; their positions freeze when t == 0.
             if cloudy:
-                cloud=(178,202,226,245) if code not in (45,48) else (145,163,181,235)
-                ox,oy=cx,cy+24
-                anim.ellipse((ox-108,oy-36,ox-22,oy+48),fill=cloud)
-                anim.ellipse((ox-66,oy-88,ox+42,oy+50),fill=cloud)
-                anim.ellipse((ox+10,oy-56,ox+105,oy+47),fill=cloud)
-                anim.rounded_rectangle((ox-88,oy+1,ox+78,oy+52),radius=18,fill=cloud)
-            if code in (51,53,55,56,57,61,63,65,66,67,80,81,82,95,96,99):
+                cloud = (178,202,226,245) if code not in (45,48) else (145,163,181,235)
+                cloud_dx = int(13 * weather_scale * math.sin(t * 0.22))
+                ox, oy = cx + cloud_dx, cy + int(24 * weather_scale)
+                anim.ellipse((ox-int(108*weather_scale),oy-int(36*weather_scale),ox-int(22*weather_scale),oy+int(48*weather_scale)), fill=cloud)
+                anim.ellipse((ox-int(66*weather_scale),oy-int(88*weather_scale),ox+int(42*weather_scale),oy+int(50*weather_scale)), fill=cloud)
+                anim.ellipse((ox+int(10*weather_scale),oy-int(56*weather_scale),ox+int(105*weather_scale),oy+int(47*weather_scale)), fill=cloud)
+                anim.rounded_rectangle((ox-int(88*weather_scale),oy+int(1*weather_scale),ox+int(78*weather_scale),oy+int(52*weather_scale)), radius=max(4,int(18*weather_scale)), fill=cloud)
+
+            # Weather precipitation is retained: rain streaks and snowflakes move with phase.
+            if code in rain_codes or code in storm_codes:
                 for i in range(7):
-                    xx=cx-72+i*24
-                    yy=cy+100+int((phase*110+i*17)%75)
-                    anim.line((xx,yy,xx-10,yy+23),fill=(80,180,255,235),width=5)
-            elif code in (71,73,75,77,85,86):
+                    xx = cx - 58 + i * 18
+                    yy = cy + 61 + int((t * 70 + i * 17) % 68)
+                    drift = int(3 * math.sin(t * 1.1 + i))
+                    anim.line((xx+drift, yy, xx-4+drift, yy+13), fill=(75,165,255,205), width=3)
+            elif code in snow_codes:
                 for i in range(9):
-                    xx=cx-88+i*22+int(5*math.sin(phase+i))
-                    yy=cy+105+int((phase*36+i*19)%85)
-                    r=5 if i%2 else 7
-                    anim.ellipse((xx-r,yy-r,xx+r,yy+r),fill=(240,248,255,245))
-            if code in (95,96,99):
-                anim.line((cx+24,cy+54,cx-2,cy+99,cx+20,cy+99,cx-9,cy+145),fill=(255,226,92,255),width=8)
-            # Seasonal motion is used only when no active precipitation is reported.
-            month=now.month
-            season='winter' if month in (12,1,2) else 'spring' if month in (3,4,5) else 'summer' if month in (6,7,8) else 'autumn'
-            if code not in (51,53,55,56,57,61,63,65,66,67,80,81,82,95,96,99,71,73,75,77,85,86):
-                colors={'winter':(205,230,255,200),'spring':(255,145,190,200),'summer':(255,205,90,185),'autumn':(224,135,65,210)}
-                col=colors[season]
-                for i in range(16):
-                    px=28+int((i*47+phase*(10+i%4)*2)%(W-56))
-                    py=1570+int((i*59+phase*(14+i%5)*2)%(H-1590))
-                    r=5+(i%4)
-                    if season=='autumn':
-                        anim.polygon([(px,py-r),(px+r,py),(px,py+r),(px-r,py)],fill=col)
-                    else:
-                        anim.ellipse((px-r,py-r,px+r,py+r),fill=col)
+                    xx = cx - 66 + i * 16 + int(4 * math.sin(t * 0.7 + i * 0.8))
+                    yy = cy + 60 + int((t * 25 + i * 13) % 74)
+                    r = 3 if i % 2 else 4
+                    col = (235,245,255,235)
+                    anim.ellipse((xx-r,yy-r,xx+r,yy+r), fill=col)
+                    anim.line((xx-r-2,yy,xx+r+2,yy), fill=col, width=1)
+                    anim.line((xx,yy-r-2,xx,yy+r+2), fill=col, width=1)
+
+            # Lightning flickers while enabled; remains visible and static when disabled.
+            if code in storm_codes:
+                flash = 255 if (not animated or int(t * 3) % 5 in (0, 1)) else 150
+                anim.line((cx+24,cy+54,cx-2,cy+99,cx+20,cy+99,cx-9,cy+145),
+                          fill=(255,226,92,flash), width=8)
+
+            # Ambient seasonal particles remain present. Rain/snow take priority over seasonal motifs.
+            ax0, ax1 = (52, W - 52) if active_mode == 'work' else (38, W - 38)
+            ay0, ay1 = (1145, 1300) if active_mode == 'work' else (1180, 1380)
+            if code in snow_codes:
+                particle_color=(224,241,255,190); count=25; motion=22
+            elif code in rain_codes or code in storm_codes:
+                particle_color=(75,165,255,155); count=30; motion=95
+            elif season == 'winter':
+                particle_color=(205,230,255,180); count=22; motion=22
+            elif season == 'spring':
+                particle_color=(255,145,190,175); count=18; motion=25
+            elif season == 'summer':
+                particle_color=(255,205,90,155); count=17; motion=15
+            else:
+                particle_color=(224,135,65,185); count=20; motion=28
+            for i in range(count):
+                span = max(1, ax1 - ax0)
+                px = ax0 + int((i*53 + t*(7+i%5)*(motion/8)) % span)
+                py = ay0 + int((i*37 + t*(motion/4+i%4)*2) % max(1, ay1-ay0))
+                if season == 'autumn' and code not in snow_codes and code not in rain_codes and code not in storm_codes:
+                    r = 3 + (i % 3)
+                    rot = t * (0.8 + (i % 4) * 0.2)
+                    dx, dy = int(r*math.cos(rot)), int(r*math.sin(rot))
+                    anim.polygon([(px,py-r),(px+dx,py),(px,py+r),(px-dx,py)], fill=particle_color)
+                elif season == 'spring' and code not in snow_codes and code not in rain_codes and code not in storm_codes:
+                    r = 2 + (i % 2)
+                    anim.ellipse((px-r,py-r,px+r,py+r), fill=particle_color)
+                elif code in rain_codes or code in storm_codes:
+                    anim.line((px,py,px-3,py+10), fill=particle_color, width=2)
+                else:
+                    r = 2 + (i % 2)
+                    anim.ellipse((px-r,py-r,px+r,py+r), fill=particle_color)
+            if active_mode == 'work' and weather_base is not None:
+                # Hard clip the complete animated sky to the weather panel; it must never spill into the player or date area.
+                clip = Image.new('L', img.size, 0)
+                ImageDraw.Draw(clip).rectangle((14, 1120, 447, 1538), fill=255)
+                img.paste(weather_base, (0, 0), Image.eval(clip, lambda px: 255-px))
         except Exception as e:
-            log.debug('Weather animation render failed: %r', e)
+            log.debug('Weather/season animation render failed: %r', e)
+
+    # Keep weather-refresh timestamps above the decorative weather/season layer.
+    # The sky and particles are intentionally rendered after normal theme elements,
+    # so redraw these small labels last to guarantee contrast/readability.
+    try:
+        overlay = ImageDraw.Draw(img, 'RGBA')
+        for weather_id in ('game_weather_updated', 'work_weather_updated', 'idle_weather_updated'):
+            item = next((e for e in elements if e.get('id') == weather_id and e.get('visible', True)), None)
+            if item:
+                tx, ty = int(item.get('x', 0)), int(item.get('y', 0))
+                tw, th = int(item.get('w', 100)), int(item.get('h', 30))
+                text_value = str(sensors.get(item.get('sensorKey', 'WEATHER_UPDATED_TEXT'), 'Обновлено: —') or 'Обновлено: —')
+                font = get_font(item.get('fontFamily', 'Consolas'), int(item.get('fontSize', 18)), True)
+                col = color_rgba('#ffffffff')
+                overlay.text((tx, ty), text_value, font=font, fill=col)
+    except Exception as e:
+        log.debug('Weather update label overlay failed: %r', e)
+
+    # TEMPORARY LAYOUT QA OVERLAY: dimensions for every visible element and
+    # measured empty gaps to nearest non-overlapping neighbours on this screen.
+    # User-toggleable in Settings -> Debug. Defaults to enabled for theme tuning.
+    _LAYOUT_DEBUG = bool(cfg.get('layout_debug', True))
+    if _LAYOUT_DEBUG:
+        try:
+            dd = ImageDraw.Draw(img, 'RGBA')
+            dbg_font = get_font('Consolas', 11, True)
+            gap_font = get_font('Consolas', 10, True)
+            boxes = []
+            for e in elements:
+                if not e.get('visible', True):
+                    continue
+                ex, ey = int(e.get('x',0)), int(e.get('y',0))
+                ew, eh = int(e.get('w',100)), int(e.get('h',30))
+                if ew <= 0 or eh <= 0:
+                    continue
+                boxes.append((e,ex,ey,ew,eh))
+                # Thin red outline; label is pinned to the upper-right corner.
+                dd.rectangle((ex,ey,ex+ew-1,ey+eh-1), outline=(255,55,75,185), width=1)
+                label = f'{ew}x{eh}'
+                bb = dd.textbbox((0,0),label,font=dbg_font)
+                tw,th = bb[2]-bb[0],bb[3]-bb[1]
+                lx = max(0,min(W-tw-2,ex+ew-tw-3))
+                ly = max(0,min(H-th-2,ey+2))
+                dd.rectangle((lx-2,ly-1,lx+tw+2,ly+th+1), fill=(30,0,8,220))
+                dd.text((lx,ly),label,font=dbg_font,fill=(255,235,70,255))
+            # Nearest gap below and to the right, considering actual rectangle edges.
+            # Values are in physical pixels and skip overlaps/touching boxes.
+            for i, (e,x1,y1,w1,h1) in enumerate(boxes):
+                right_candidate = None
+                below_candidate = None
+                for j, (e2,x2,y2,w2,h2) in enumerate(boxes):
+                    if i == j:
+                        continue
+                    overlap_y = min(y1+h1,y2+h2) - max(y1,y2)
+                    if x2 >= x1+w1 and overlap_y > 5:
+                        gap = x2-(x1+w1)
+                        score = (gap, -overlap_y)
+                        if right_candidate is None or score < right_candidate[0]:
+                            right_candidate = (score,gap,(x1+w1+x2)//2,(max(y1,y2)+min(y1+h1,y2+h2))//2)
+                    overlap_x = min(x1+w1,x2+w2) - max(x1,x2)
+                    if y2 >= y1+h1 and overlap_x > 5:
+                        gap = y2-(y1+h1)
+                        score = (gap, -overlap_x)
+                        if below_candidate is None or score < below_candidate[0]:
+                            below_candidate = (score,gap,(max(x1,x2)+min(x1+w1,x2+w2))//2,(y1+h1+y2)//2)
+                for candidate in (right_candidate, below_candidate):
+                    if candidate and candidate[1] > 0:
+                        _,gap,gx,gy = candidate
+                        glabel = f'{gap}px'
+                        gb = dd.textbbox((0,0),glabel,font=gap_font)
+                        gw,gh=gb[2]-gb[0],gb[3]-gb[1]
+                        gx=max(0,min(W-gw-2,gx-gw//2)); gy=max(0,min(H-gh-2,gy-gh//2))
+                        dd.rectangle((gx-2,gy-1,gx+gw+2,gy+gh+1),fill=(0,0,0,220))
+                        dd.text((gx,gy),glabel,font=gap_font,fill=(80,255,180,255))
+        except Exception as e:
+            log.debug('Layout debug overlay failed: %r', e)
     return img
 
 # ── Load theme ─────────────────────────────────────────────────────────────────
@@ -2229,6 +2455,17 @@ def stream_loop():
             check_hwinfo_restart_needed()  # internally gated to ~every 30 min, cheap no-op otherwise
             sensors = read_sensors()
             sensors.update(_get_media_data())
+            # The tray preview temporarily overrides only weather presentation fields.
+            # Live weather polling and the saved city continue untouched in the background.
+            preview_index = _weather_preview_index
+            if preview_index is not None:
+                scene = _WEATHER_PREVIEW_SCENES[preview_index % len(_WEATHER_PREVIEW_SCENES)]
+                sensors.update({
+                    'WEATHER_CODE': scene['code'],
+                    'WEATHER_IS_DAY': scene['day'],
+                    'WEATHER_DESC': scene['desc'],
+                    'WEATHER_DETAIL': 'Visual preview mode',
+                })
             active_mode = _detect_display_mode(sensors)
             sensors['_DISPLAY_MODE'] = active_mode
             img = render_frame(_current_theme, sensors)
@@ -2432,6 +2669,12 @@ BUILTIN_TRANSLATIONS = {
     '  RTSS (FPS)  ': '  RTSS (FPS)  ',
     '  RTSS  ': '  RTSS  ',
     '  Screen  ': '  Экран  ',
+    '  Weather  ': '  Погода  ',
+    '  Debug  ': '  Отладка  ',
+    'Layout diagnostics': 'Отладка расположения',
+    'Show element sizes and spacing': 'Показывать размеры элементов и отступы',
+    'Draws red outlines, pixel dimensions and measured gaps on each screen.': 'Показывает красные границы, размеры в пикселях и измеренные промежутки на каждом экране.',
+    'Weather and decorative animation': 'Погода и декоративная анимация',
     'Display behavior': 'Поведение дисплея',
     'Choose which layout is shown on the DS916 screen.': 'Выберите макет для экрана DS916.',
     'Screen switching': 'Переключение режимов',
@@ -2482,6 +2725,12 @@ BUILTIN_TRANSLATIONS = {
     '⚙ Settings…': '⚙ Настройки…',
     '🗑 Uninstall…': '🗑 Удалить приложение…',
     '❌ Exit': '❌ Выход',
+    'Automatic screen mode': 'Автоматический режим экрана',
+    'Gaming screen mode': 'Игровой экран',
+    'Work screen mode': 'Рабочий экран',
+    'Idle screen mode': 'Экран ожидания',
+    '🌦 Next Weather Preview': '🌦 Следующий вариант погоды',
+    '🌤 Return to Live Weather': '🌤 Вернуться к реальной погоде',
     'When disabled, the weather illustration and music equalizer stop animating.\nThis can reduce rendering load; sensor readings and text keep updating.': 'При отключении останавливается анимация погоды и эквалайзера.\nЭто снижает нагрузку; датчики и текст продолжают обновляться.',
     'HWiNFO64 Shared Memory — 12-Hour Limit Workaround': 'HWiNFO64 Shared Memory — обход ограничения в 12 часов',
     'HWiNFO64 free edition disables shared memory after 12 hours.\nThis app can automatically detect HWiNFO64\'s real uptime\nevery 30 minutes and restart it once it has been running\nfor 11.5 hours, keeping shared memory active indefinitely.\n\nThis runs silently in the background — no window appears,\nand it requires no extra permissions, since restarting an\nordinary application you already have access to is not an\nelevated action (unlike registering a Windows Scheduled Task,\nwhich is why earlier versions needed a UAC prompt for this).': 'Бесплатная версия HWiNFO64 отключает Shared Memory через 12 часов.\nПриложение может каждые 30 минут проверять время работы HWiNFO64\nи перезапускать его после 11,5 часов работы, чтобы Shared Memory\nоставалась доступной.\n\nПроверка выполняется в фоне без отдельного окна и не требует\nдополнительных прав: перезапуск обычного приложения не требует\nповышения привилегий, в отличие от создания задания Windows,\nдля которого в ранних версиях требовалось подтверждение UAC.',
@@ -2573,9 +2822,11 @@ def tr(text):
 
 # ── Settings Window ───────────────────────────────────────────────────────────
 _settings_win = None
+_settings_notebook = None
+_about_tab = None
 
 def open_settings():
-    global _settings_win
+    global _settings_win, _settings_notebook, _about_tab
     # If already open, just bring it to front
     if _settings_win and _settings_win.winfo_exists():
         _settings_win.lift()
@@ -2584,11 +2835,11 @@ def open_settings():
 
     # Use Toplevel (child of hidden root) — NOT tk.Tk() which breaks on reopen
     win = tk.Toplevel(_tk_root)
-    win.title(tr('DS916 Settings'))
-    win.geometry('620x760')
+    win.title('DS916 v0.48.4 — Настройки')
+    win.geometry('700x800')
     win.configure(bg='#18181c')
     win.resizable(True, True)
-    win.minsize(500, 500)
+    win.minsize(620, 600)
     win.lift()
     win.focus_force()
     _settings_win = win
@@ -2609,10 +2860,15 @@ def open_settings():
               foreground=[('selected','#00b4ff')])
 
     nb = ttk.Notebook(win)
+    _settings_notebook = nb
     nb.pack(fill='both', expand=True, padx=10, pady=10)
 
     # ── Tab 1: General ────────────────────────────────────────────────────────
     t1 = ttk.Frame(nb); nb.add(t1, text=tr('  General  '))
+    t_weather = ttk.Frame(nb); nb.add(t_weather, text=tr('  Weather  '))
+    t_debug = ttk.Frame(nb); nb.add(t_debug, text=tr('  Debug  '))
+    t_about = ttk.Frame(nb)
+    _about_tab = t_about
 
     def lbl(parent, text, row, col=0):
         ttk.Label(parent, text=tr(text)).grid(row=row, column=col, sticky='w', padx=8, pady=4)
@@ -2655,8 +2911,8 @@ def open_settings():
     ttk.Button(language_row, text=tr('Import language dictionary…'), command=import_language_dictionary).pack(side='left', padx=8)
 
     # Weather city: geocode with Open-Meteo, then persist coordinates/time zone.
-    weather_row = ttk.Frame(t1)
-    weather_row.grid(row=1, column=0, columnspan=3, sticky='ew', padx=8, pady=(4, 4))
+    weather_row = ttk.Frame(t_weather)
+    weather_row.grid(row=0, column=0, columnspan=3, sticky='ew', padx=8, pady=(12, 8))
     ttk.Label(weather_row, text=tr('Weather city:')).pack(side='left', padx=(0, 8))
     weather_city_var = tk.StringVar(value=cfg.get('weather_city', 'Москва'))
     weather_city_entry = ttk.Entry(weather_row, textvariable=weather_city_var, width=22)
@@ -2696,6 +2952,16 @@ def open_settings():
             weather_status_lbl.config(text=tr('City search failed:') + ' ' + str(e), foreground='#e05a4b')
 
     ttk.Button(weather_row, text=tr('Find city'), command=find_weather_city).pack(side='left', padx=6)
+
+    weather_animation_frame = ttk.LabelFrame(t_weather, text=tr('Weather and decorative animation'))
+    weather_animation_frame.grid(row=1, column=0, columnspan=3, sticky='ew', padx=12, pady=8)
+    animation_var = tk.BooleanVar(value=cfg.get('decorative_animation', True))
+    ttk.Checkbutton(weather_animation_frame, text=tr('Enable decorative animation'),
+                    variable=animation_var).pack(anchor='w', padx=10, pady=(8, 4))
+    ttk.Label(weather_animation_frame, text=tr('When disabled, the weather illustration and music equalizer stop animating.\n'
+              'This can reduce rendering load; sensor readings and text keep updating.'),
+              foreground='#999', justify='left', wraplength=530).pack(anchor='w', padx=28, pady=(0, 8))
+
     lbl(t1, 'COM Port:', 2)
     com_var = tk.StringVar(value=cfg['com_port'])
     ports = [p.device for p in serial.tools.list_ports.comports()]
@@ -2739,25 +3005,98 @@ def open_settings():
     ttk.Checkbutton(t1, text=tr('Start display automatically with Windows'),
                     variable=auto_var).grid(row=6, column=0, columnspan=3, sticky='w', padx=8, pady=6)
 
-    lbl(t1, 'Logging:', 7)
+    # Weather scene preview controls for testing the sky, icon and particles.
+    preview_box = ttk.LabelFrame(t_debug, text=tr('Weather preview'))
+    preview_box.grid(row=0, column=0, columnspan=3, sticky='ew', padx=12, pady=(12, 8))
+    ttk.Label(preview_box, text=tr('Select a test weather scene; use Live Weather to return to real conditions.'),
+              foreground='#999', wraplength=420, justify='left').pack(anchor='w', padx=10, pady=(7, 4))
+    preview_buttons = ttk.Frame(preview_box)
+    preview_buttons.pack(fill='x', padx=8, pady=(0, 8))
+    def select_weather_preview(index):
+        global _weather_preview_index
+        _weather_preview_index = index
+        scene = _WEATHER_PREVIEW_SCENES[index]
+        log.info('Weather preview selected from Settings: %s', scene['name'])
+        try:
+            if _tray is not None: _tray.update_menu()
+        except Exception: pass
+    preview_labels = ['☀ Clear day', '☾ Clear night', '☁ Cloudy', '〰 Fog', '☂ Rain', '🌧 Heavy rain', '❄ Snow', '❄ Heavy snow', '⚡ Thunderstorm']
+    for idx, preview_label in enumerate(preview_labels):
+        ttk.Button(preview_buttons, text=tr(preview_label),
+                   command=lambda i=idx: select_weather_preview(i)).grid(
+            row=idx // 2, column=idx % 2, sticky='ew', padx=3, pady=3)
+    for col in range(2): preview_buttons.columnconfigure(col, weight=1, uniform='weather_preview')
+    ttk.Button(preview_box, text=tr('🌤 Return to Live Weather'),
+               command=lambda: return_to_live_weather()).pack(anchor='w', padx=10, pady=(0, 8))
+
+    # Debug and diagnostics controls are grouped on the dedicated Debug tab.
+    layout_debug_var = tk.BooleanVar(value=cfg.get('layout_debug', True))
+    ttk.LabelFrame(t_debug, text=tr('Layout diagnostics')).grid(row=1, column=0, sticky='ew', padx=12, pady=(4, 8))
+    layout_frame = t_debug.winfo_children()[-1]
+    ttk.Checkbutton(layout_frame, text=tr('Show element sizes and spacing'),
+                    variable=layout_debug_var).pack(anchor='w', padx=10, pady=(8, 4))
+    ttk.Label(layout_frame, text=tr('Draws red outlines, pixel dimensions and measured gaps on each screen.'),
+              foreground='#999', justify='left', wraplength=520).pack(anchor='w', padx=28, pady=(0, 8))
+
+    ttk.Label(t_debug, text=tr('Logging:')).grid(row=2, column=0, sticky='w', padx=8, pady=4)
     log_level_var = tk.StringVar(value=cfg.get('log_level', 'normal'))
-    log_level_cb = ttk.Combobox(t1, textvariable=log_level_var,
+    log_level_cb = ttk.Combobox(t_debug, textvariable=log_level_var,
                                 values=['off', 'normal', 'verbose'], width=10, state='readonly')
-    log_level_cb.grid(row=7, column=1, sticky='w', padx=8, pady=4)
+    log_level_cb.grid(row=2, column=1, sticky='w', padx=8, pady=4)
+    t_debug.columnconfigure(0, weight=0)
+    t_debug.columnconfigure(1, weight=1)
+    log_level_cb.configure(width=16)
     if log_level_var.get() in ['off', 'normal', 'verbose']:
         log_level_cb.current(['off', 'normal', 'verbose'].index(log_level_var.get()))
     log_level_cb.set(log_level_var.get())
-    ttk.Label(t1, text=tr('verbose = detailed per-frame/per-read diagnostics, for troubleshooting'),
-              font=('Segoe UI', 8), foreground='#555').grid(
-        row=8, column=0, columnspan=3, sticky='w', padx=8)
+    ttk.Label(t_debug, text=tr('verbose = detailed per-frame/per-read diagnostics, for troubleshooting'),
+              font=('Segoe UI', 8), foreground='#999').grid(
+        row=3, column=0, columnspan=3, sticky='w', padx=8)
 
     def open_log_folder():
         try:
             os.startfile(CONFIG_DIR)
         except Exception as e:
             messagebox.showerror('DS916', f'Could not open folder: {e}', parent=win)
-    ttk.Button(t1, text=tr('📁 Open Log Folder'), command=open_log_folder).grid(
-        row=9, column=0, columnspan=2, sticky='w', padx=8, pady=(6,4))
+    ttk.Button(t_debug, text=tr('📁 Open Log Folder'), command=open_log_folder).grid(
+        row=4, column=0, columnspan=2, sticky='w', padx=8, pady=(6,4))
+
+    # ── About tab ───────────────────────────────────────────────────────────
+    import webbrowser
+    ttk.Label(t_about, text='DS916 v0.48.4', font=('Segoe UI', 18, 'bold'),
+              foreground='#00b4ff').pack(anchor='w', padx=18, pady=(18, 6))
+    repo_link = ttk.Label(t_about, text='GitHub: https://github.com/tbrggreen/DS916Tray',
+                          foreground='#52baff', cursor='hand2', wraplength=620)
+    repo_link.pack(anchor='w', padx=18, pady=(0, 16))
+    repo_link.bind('<Button-1>', lambda _e: webbrowser.open('https://github.com/tbrggreen/DS916Tray'))
+    ttk.Label(t_about, text='История изменений', font=('Segoe UI', 11, 'bold')).pack(
+        anchor='w', padx=18, pady=(0, 6))
+    changelog = (
+        'v0.48.3 — окно настроек и значок погоды\n'
+        '• Вкладка «О программе» перенесена в конец списка\n'
+        '• История изменений прокручивается; сохраняется история 5 последних версий\n'
+        '• Размер и положение существующей иконки погоды на рабочем экране скорректированы\n'
+        '\n'
+        'v0.48.2 — локализация и значок в трее\n'
+        '• Вкладка и пункт меню «О программе» переведены на русский\n'
+        '• Значок в трее использует файл иконки приложения\n'
+        '\n'
+        'v0.48.1 — интерфейс настроек и погодного блока\n'
+        'v0.48.0 — управление погодными сценами, обновление плеера и поведения трея'
+    )
+    changelog_frame = ttk.Frame(t_about)
+    changelog_frame.pack(fill='both', expand=True, padx=18, pady=(0, 12))
+    changelog_scroll = ttk.Scrollbar(changelog_frame, orient='vertical')
+    changelog_text = tk.Text(changelog_frame, wrap='word', height=12, width=72,
+                             background='#18181c', foreground='#e8e6df',
+                             insertbackground='#e8e6df', relief='flat',
+                             borderwidth=0, font=('Segoe UI', 10),
+                             yscrollcommand=changelog_scroll.set, padx=4, pady=4)
+    changelog_scroll.configure(command=changelog_text.yview)
+    changelog_text.pack(side='left', fill='both', expand=True)
+    changelog_scroll.pack(side='right', fill='y')
+    changelog_text.insert('1.0', changelog)
+    changelog_text.configure(state='disabled')
 
     # ── Tab 2: HWiNFO ────────────────────────────────────────────────────────
     t3 = ttk.Frame(nb); nb.add(t3, text=tr('  HWiNFO  '))
@@ -2907,6 +3246,9 @@ def open_settings():
     ttk.Radiobutton(screen_modes_frame, text=tr('Idle screen'), value='idle',
                     variable=screen_mode_var).pack(anchor='w', padx=10, pady=(3, 8))
 
+    # About is intentionally the final settings tab.
+    nb.add(t_about, text='  О программе  ')
+
     # Fine-tune the GPU-load threshold used to switch automatically to Gaming.
     gpu_threshold_frame = ttk.LabelFrame(t5, text=tr('Automatic Gaming detection'))
     gpu_threshold_frame.pack(fill='x', padx=12, pady=6)
@@ -2972,14 +3314,6 @@ def open_settings():
     orientation_cb.pack(side='left')
     orientation_cb.current(list(orientation_labels.keys()).index(orientation_value))
     orientation_cb.set(orientation_labels[orientation_value])
-
-    animation_var = tk.BooleanVar(value=cfg.get('decorative_animation', True))
-    ttk.Checkbutton(t5, text=tr('Enable decorative animation'), variable=animation_var).pack(
-        anchor='w', padx=14, pady=4)
-    ttk.Label(t5, text=tr('When disabled, the weather illustration and music equalizer stop animating.\n'
-                          'This can reduce rendering load; sensor readings and text keep updating.'),
-              foreground='#999', justify='left', wraplength=530).pack(
-                  anchor='w', padx=32, pady=(0, 8))
 
     ttk.Separator(t5).pack(fill='x', padx=12, pady=8)
     ttk.Label(t5, text=tr('Display actions'), font=('Segoe UI', 11, 'bold'),
@@ -3096,6 +3430,7 @@ def open_settings():
         cfg['hwinfo_path']   = hwinfo_path_var.get().strip()
         cfg['hwinfo_auto_restart'] = auto_restart_var.get()
         cfg['log_level']     = log_level_var.get()
+        cfg['layout_debug']  = layout_debug_var.get()
 
         # Load the matching default layout when switching between album and portrait families.
         # The renderer rotates the 462x1920 theme canvas after drawing it.
@@ -3170,15 +3505,25 @@ def is_autostart():
 _tray = None
 
 def make_tray_icon():
-    """Create a simple DS916 icon programmatically."""
-    size = 64
-    img = PILImage.new('RGBA', (size,size), (0,0,0,0))
+    """Use the same icon artwork as the Windows desktop/application shortcut."""
+    candidates = [
+        os.path.join(getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__))), 'ds916tray_v2.ico'),
+        os.path.join(os.path.dirname(os.path.abspath(sys.executable)), 'ds916tray_v2.ico'),
+        os.path.join(CONFIG_DIR, 'ds916tray_v2.ico'),
+    ]
+    for icon_path in candidates:
+        try:
+            if os.path.isfile(icon_path):
+                return PILImage.open(icon_path).convert('RGBA').resize((128, 128), PILImage.Resampling.LANCZOS)
+        except Exception:
+            pass
+    # Fallback: preserve a recognizable DS916 display if the shared ICO is not installed.
+    size = 128
+    img = PILImage.new('RGBA', (size, size), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    d.ellipse([4,4,60,60], fill=(0,20,30,255), outline=(0,180,255,255), width=3)
-    d.rectangle([20,16,44,48], fill=(0,180,255,200))
-    d.rectangle([22,18,42,46], fill=(0,10,20,255))
-    for i in range(3):
-        y0=22+i*8; d.rectangle([25,y0,39,y0+5],fill=(0,180,255,180))
+    d.rounded_rectangle((14, 14, 114, 114), radius=18, fill=(5, 15, 20, 255), outline=(0, 255, 80, 255), width=6)
+    d.text((25, 43), 'DS', fill=(0, 255, 80, 255))
+    d.text((25, 65), '916', fill=(0, 255, 80, 255))
     return img
 
 def update_tray_icon():
@@ -3186,7 +3531,7 @@ def update_tray_icon():
     if not _tray: return
     status = '● Running' if _running else '○ Stopped'
     theme_name = _current_theme.get('name','No theme') if _current_theme else 'No theme loaded'
-    _tray.title = f'DS916 — {status}\n{theme_name}'
+    _tray.title = f'DS916 v0.48.4 — {status}\n{theme_name}'
 
 # ── Main-thread dispatcher ────────────────────────────────────────────────────
 # pystray callbacks run on a background thread. tkinter dialogs MUST run on the
@@ -3248,6 +3593,16 @@ def open_builder(icon=None, item=None):
 
 def open_settings_tray(icon=None, item=None):
     _dispatch(open_settings)
+
+def open_about_tray(icon=None, item=None):
+    def _show_about():
+        open_settings()
+        try:
+            if _settings_notebook is not None and _about_tab is not None:
+                _settings_notebook.select(_about_tab)
+        except Exception:
+            pass
+    _dispatch(_show_about)
 
 def quit_app(icon=None, item=None):
     stop_display()
@@ -3560,21 +3915,60 @@ def _stop_display_from_tray(icon=None, item=None):
         except Exception:
             pass
 
+def next_weather_preview(icon=None, item=None):
+    # Cycle through test weather scenes for checking all weather graphics.
+    global _weather_preview_index
+    if _weather_preview_index is None:
+        _weather_preview_index = 0
+    else:
+        _weather_preview_index = (_weather_preview_index + 1) % len(_WEATHER_PREVIEW_SCENES)
+    scene = _WEATHER_PREVIEW_SCENES[_weather_preview_index]
+    log.info('Weather preview: %s (code=%s, day=%s)', scene['name'], scene['code'], scene['day'])
+    if _tray is not None:
+        try: _tray.update_menu()
+        except Exception: pass
+
+
+def return_to_live_weather(icon=None, item=None):
+    # Disable preview and return to live weather for the configured city.
+    global _weather_preview_index
+    _weather_preview_index = None
+    log.info('Weather preview disabled; showing live weather again')
+    if _tray is not None:
+        try: _tray.update_menu()
+        except Exception: pass
+
+
 def build_menu():
     # Callable labels are resolved by pystray whenever the menu is shown,
     # so changing the language does not require recreating the tray icon.
     label = lambda source: (lambda item: tr(source))
     return pystray.Menu(
+        Item(label('⚙ Open Settings'), open_settings_tray, default=True),
         Item(label('DS916 Screen Manager'), None, enabled=False),
         pystray.Menu.SEPARATOR,
         Item(label('▶ Start Display'), _start_display_from_tray, enabled=lambda item: not _running),
         Item(label('⏹ Stop Display'), _stop_display_from_tray, enabled=lambda item: _running),
+        pystray.Menu.SEPARATOR,
+        Item(label('Automatic screen mode'), lambda icon, item: set_screen_mode('auto'),
+             checked=lambda item: cfg.get('screen_mode', 'auto') == 'auto', radio=True),
+        Item(label('Gaming screen mode'), lambda icon, item: set_screen_mode('gaming'),
+             checked=lambda item: cfg.get('screen_mode') == 'gaming', radio=True),
+        Item(label('Work screen mode'), lambda icon, item: set_screen_mode('work'),
+             checked=lambda item: cfg.get('screen_mode') == 'work', radio=True),
+        Item(label('Idle screen mode'), lambda icon, item: set_screen_mode('idle'),
+             checked=lambda item: cfg.get('screen_mode') == 'idle', radio=True),
+        pystray.Menu.SEPARATOR,
+        Item(label('🌦 Next Weather Preview'), next_weather_preview),
+        Item(label('🌤 Return to Live Weather'), return_to_live_weather,
+             enabled=lambda item: _weather_preview_index is not None),
         pystray.Menu.SEPARATOR,
         Item(label('📂 Load Theme…'), load_theme_dialog),
         Item(label('🎨 Open Theme Builder'), open_builder),
         pystray.Menu.SEPARATOR,
         Item(label('🔍 Discover Sensors'), discover_sensors_tray),
         Item(label('ℹ Status…'), show_status),
+        Item(label('ℹ О программе — DS916 v0.48.4'), open_about_tray),
         Item(label('⚙ Settings…'), open_settings_tray),
         pystray.Menu.SEPARATOR,
         Item(label('🗑 Uninstall…'), uninstall_app),
@@ -3584,7 +3978,11 @@ def build_menu():
 def run_tray():
     global _tray
     icon_img = make_tray_icon()
-    _tray = pystray.Icon(APP_NAME, icon_img, 'DS916 Screen Manager', menu=build_menu())
+    _tray = pystray.Icon(
+        APP_NAME, icon_img, 'DS916 Screen Manager',
+        menu=build_menu(),
+        on_activate=lambda icon: _dispatch(open_settings),
+    )
     # Run pystray on its own thread so the main thread stays free for tk
     t = threading.Thread(target=_tray.run, daemon=True)
     t.start()

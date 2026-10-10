@@ -1,36 +1,97 @@
 # Changelog
 
-## v35.0.0 - 2026-10-09
+## [0.48.4] — 2026-10-10
 
-### Added
-- Added a configurable RTSS FPS threshold for automatic Gaming mode activation.
-- Added a slider to configure the FPS threshold from 1 to 120 FPS.
-- Gaming mode now activates when either the GPU load threshold or the RTSS FPS threshold is reached.
+### Fixed
+- Исправлено отображение иконки погоды: увеличена существующая иконка и скорректировано её положение.
+- Убрана ошибочно добавленная дублирующая иконка в нижней части блока погоды.
 
 ### Changed
-- Set the default RTSS FPS threshold to 45 FPS.
-- Preserved the existing GPU load threshold setting.
+- Вкладка «О программе» перемещена в конец окна настроек.
+- Список изменений сделан прокручиваемым.
+- История изменений в окне приложения рассчитана на отображение пяти последних обновлений.
+- Названия вкладки «О программе» и пункта меню в системном трее переведены на русский язык.
 
-## v34.0.0 — repository release preparation
+## [0.48.3] — 2026-10-10
 
-- Updated the packaged application to the working v34 source.
-- Made the weather header city name follow the city selected in General settings.
-- Included the dynamic-city three-screen theme for Gaming, Work, and Idle modes.
-- Added the custom Jonsbo DS916 application icon for the executable, desktop shortcut, and system tray.
-- Standardized project branding and theme filenames around the author handle `tbrggreen`.
-- Cleaned the repository package and excluded Python cache/build artifacts from the release archive.
-- Updated bilingual README instructions and build script references.
+### Changed
+- Доработано окно настроек и отображение истории изменений.
+- Обновлена тема рабочего экрана на основе v0.48.1.
+- Выполнена корректировка размера и расположения иконки погоды.
 
-## v31.0.0 — repository preparation
+## [0.48.2] — 2026-10-10
 
-- Prepared the initial public-repository structure.
-- Added `build.bat` to install dependencies, package the app with PyInstaller, copy the example theme when missing, and create a desktop shortcut.
-- Expanded English and Russian documentation with player requirements, installation steps, and verification checklists for GSMTC, HWiNFO64, and optional RTSS.
-- Documented that Windows media-session integration does not require a Spotify API key.
+### Changed
+- Добавлена русская локализация вкладки «О программе» и пункта меню в трее.
+- Обновлена иконка приложения в системном трее для соответствия значку приложения.
+- Выполнены небольшие корректировки интерфейса темы рабочего экрана.
 
-## Previous work
+## [0.48.1] — 2026-10-10
 
-- Russian and English UI localization with importable JSON language dictionaries.
-- Tray menu and DS916 Status localization.
-- Automatic Gaming/Work/Idle display modes and configurable GPU threshold.
-- Orientation-specific themes, theme loading, settings, and Windows media-session player.
+### Added
+- Добавлена вкладка «О программе» в настройках.
+- Добавлена ссылка на репозиторий проекта и краткая история изменений.
+- Обновлена иконка системного трея.
+
+### Changed
+- Увеличено окно настроек и скорректировано размещение элементов.
+- Подправлены отступы элементов музыкального блока и погодного блока в теме рабочего экрана.
+
+## [0.48.0] — 2026-10-10
+
+### Added
+- Добавлены предварительные просмотры погоды.
+- Добавлен блок музыкального плеера в тему рабочего экрана.
+- Доработано поведение приложения в системном трее.
+
+## [v34] — 2026-10-09
+
+### Changed
+- Название блока погоды теперь формируется динамически на основе выбранного города.
+- Обновлены имя автора темы и оформление файлов проекта.
+- Обновлены CHANGELOG, README и NOTICE.
+- Подготовлен комплект проекта с темами, шаблоном словаря, зависимостями и скриптом сборки.
+
+## [v33] — 2026-10-09
+
+### Changed
+- Изменён город погоды по умолчанию на Москву.
+- Обновлены подписи погоды в теме с тремя экранами.
+
+## [v32] — 2026-10-09
+
+### Added
+- Добавлен выбор города погоды в общих настройках.
+- Добавлен поиск города через геокодер Open-Meteo.
+- Сохраняются координаты и часовой пояс выбранного города.
+
+### Changed
+- Расчёты погоды используют выбранный город.
+
+## [v26] — 2026-10-09
+
+### Changed
+- Переведены подсказка декоративной анимации, вкладки HWiNFO и RTSS и элементы управления.
+- Кнопки управления дисплеем перемещены под строку выбора темы.
+
+## [v25] — 2026-10-09
+
+### Changed
+- Переведено меню системного трея.
+
+## [v24] — 2026-10-09
+
+### Added
+- Добавлен выбор языка интерфейса.
+- Добавлен импорт словаря переводов в формате JSON.
+- Добавлены русские переводы основных настроек.
+- Выбранный язык сохраняется между запусками.
+
+## [v22] — 2026-10-09
+
+### Changed
+- Из меню системного трея убраны переключатели Auto, Gaming, Work и Idle.
+- Добавлены команды запуска и остановки дисплея.
+- Добавлен слайдер порога загрузки GPU от 10 до 90% с шагом 5%.
+- Режим Gaming учитывает FPS из RTSS (не менее 45 FPS).
+- Режим Idle активируется при CPU ниже 8%, GPU ниже 5% и FPS ниже 8 в течение 90 секунд.
