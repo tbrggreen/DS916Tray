@@ -2,6 +2,14 @@
 
 **English | [Русский](#русский)**
 
+![DS916Tray — three-screen dashboard](assets/ds916tray-banner.png)
+
+A visual overview of the three-screen dashboard is shown below. The full-size layout preview is included in the repository assets.
+
+## Dashboard preview
+
+![DS916Tray three-screen layout](assets/3_screens_example.png)
+
 An independent community modification of [DS916 Sensor Panel](https://github.com/mike-novotny/sensor-panel) for the Jonsbo DS916 USB display. This version adds a Windows tray interface, automatic Gaming/Work/Idle modes, Russian localization, importable language dictionaries, and Windows media-session controls.
 
 > Maintainer: **tbrggreen**. This is an independent community modification, not an official release by the upstream author or by Jonsbo.
@@ -16,7 +24,7 @@ An independent community modification of [DS916 Sensor Panel](https://github.com
 - Built-in English/Russian UI and importable JSON language dictionaries.
 - User-loadable themes and a Theme Builder integration when `theme_builder.html` is installed.
 - Windows media-session integration: track title, artist, cover art, progress, and playback controls for compatible players.
-- Included example skin: **tbrggreen — 3 Screens**, based on the author's supplied theme.
+- Included three-screen theme: **DS916Tray 3 Screens v0.49.4** (`Themes/DS916Tray_3_Screens_v0.49.4.ds916theme`).
 - A custom green-accented Jonsbo DS916 application icon for the executable, desktop shortcut, and tray, created for this project by `tbrggreen`.
 
 ## Requirements
@@ -98,6 +106,12 @@ The application icon was created for this project by `tbrggreen`. Jonsbo is a th
 
 ## Русский
 
+![DS916Tray — three-screen dashboard](assets/ds916tray-banner.png)
+
+Предварительный просмотр интерфейса на трёх экранах:
+
+![Макет DS916Tray на трёх экранах](assets/3_screens_example.png)
+
 **DS916Tray — tbrggreen Edition** — независимая модификация [DS916 Sensor Panel](https://github.com/mike-novotny/sensor-panel) для USB-дисплея Jonsbo DS916. Добавлены управление через системный трей, автоматические режимы Gaming/Work/Idle, русский интерфейс, пользовательские словари и управление медиасеансами Windows.
 
 > Автор и сопровождающий проекта: **tbrggreen**. Это независимая модификация, не являющаяся официальным релизом автора исходного проекта или Jonsbo.
@@ -112,7 +126,7 @@ The application icon was created for this project by `tbrggreen`. Jonsbo is a th
 - Встроенные английский и русский языки, импорт пользовательских JSON-словарей.
 - Загрузка тем; интеграция с редактором тем при наличии `theme_builder.html`.
 - Информация о треке, исполнителе, обложке и прогрессе, а также команды управления воспроизведением через медиасеансы Windows.
-- Пример скина **tbrggreen — 3 экрана**, приложенный владельцем проекта.
+- Тема на три экрана **DS916Tray 3 Screens v0.49.4** (`Themes/DS916Tray_3_Screens_v0.49.4.ds916theme`).
 - Собственная зелёная акцентная иконка для `.exe`, ярлыка рабочего стола и трея, созданная `tbrggreen`.
 
 ### Требования
