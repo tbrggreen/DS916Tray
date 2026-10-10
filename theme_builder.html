@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>DS916 Theme Builder</title>
+<title>DS916 Theme Builder v0.1.7 — Multi-screen Preview</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -56,7 +56,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
 /* CANVAS */
 #cw{flex:1;overflow:auto;background:#070708;display:flex;align-items:flex-start;justify-content:center;padding:24px;position:relative}
 #co{position:relative;transform-origin:top center}
-#canvas{position:relative;background:#111114;overflow:hidden;box-shadow:0 8px 48px rgba(0,0,0,.9)}
+#canvas{position:relative;background:#111114;overflow:visible;box-shadow:0 8px 48px rgba(0,0,0,.9)}
 #backImg{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;z-index:0;pointer-events:none}
 #backVid{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;z-index:0;pointer-events:none;display:none}
 .snap-line{position:absolute;pointer-events:none;z-index:9999;opacity:0;transition:opacity .1s}
@@ -142,12 +142,21 @@ select option{background:#1f1f25}
 </head>
 <body>
 <div id="topbar">
-  <span class="logo">⬡ DS916</span>
+  <span class="logo">⬡ DS916 <small style="font-size:10px;opacity:.7">v0.1.7</small></span>
   <div class="sep"></div>
   <input id="themeName" type="text" placeholder="ThemeName" value="MyTheme">
   <div class="sep"></div>
   <button class="ob active" id="btnV" onclick="setOri('vertical')">▯ Vert</button>
   <button class="ob" id="btnH" onclick="setOri('horizontal')">▭ Horiz</button>
+  <div class="sep"></div>
+  <span style="font-size:10px;color:var(--muted);white-space:nowrap">Screen:</span>
+  <button class="ob" id="modeGaming" onclick="setScreenMode('gaming')">🎮 Gaming</button>
+  <button class="ob" id="modeWork" onclick="setScreenMode('work')">💼 Work</button>
+  <button class="ob" id="modeIdle" onclick="setScreenMode('idle')">☕ Idle</button>
+  <div class="sep"></div>
+  <button class="btn" id="undoBtn" onclick="undo()" title="Отменить (Ctrl+Z)">↶ Отмена</button>
+  <button class="btn" id="redoBtn" onclick="redo()" title="Повторить (Ctrl+Y / Ctrl+Shift+Z)">↷ Повтор</button>
+  <select id="languageSelect" aria-label="Interface language" title="Interface language" style="background:var(--panel2);color:var(--text);border:1px solid var(--border);padding:4px;border-radius:4px"><option value="ru">Русский</option><option value="en">English</option></select>
   <div class="sep"></div>
   <button class="btn" onclick="chZoom(-0.1)">−</button>
   <span id="zv">40%</span>
@@ -211,7 +220,16 @@ select option{background:#1f1f25}
 'use strict';
 // ── STATE ────────────────────────────────────────────────────────────────────
 let ori='vertical',CW=462,CH=1920,zoom=0.4;
-let elems=[],selId=null,nid=1,nz=10,backData=null;
+let activeScreenMode='work';
+let themeMetadata={};
+let elems=[],selId=null,selectedIds=new Set(),nid=1,nz=10,backData=null;
+// Undo snapshots are grouped by user action (compound presets count as one).
+let undoStack=[],redoStack=[],historyMuted=false,lastSnapshot=JSON.stringify(elems);
+function pushUndo(){if(historyMuted)return;undoStack.push(JSON.stringify(elems));if(undoStack.length>100)undoStack.shift();redoStack=[];updateHistoryButtons();}
+function updateHistoryButtons(){const u=$('undoBtn'),r=$('redoBtn');if(u)u.disabled=!undoStack.length;if(r)r.disabled=!redoStack.length;}
+function restoreSnapshot(snapshot){elems=JSON.parse(snapshot);document.querySelectorAll('#canvas .ce').forEach(d=>{if(d._ro)d._ro.disconnect();d.remove();});selId=null;for(const el of elems)renderEl(el);refreshLayers();renderProps(null);updStatus();lastSnapshot=JSON.stringify(elems);updateHistoryButtons();}
+function undo(){if(!undoStack.length){toast('Нечего отменять');return;}redoStack.push(JSON.stringify(elems));restoreSnapshot(undoStack.pop());toast('Действие отменено');}
+function redo(){if(!redoStack.length){toast('Нечего повторять');return;}undoStack.push(JSON.stringify(elems));restoreSnapshot(redoStack.pop());toast('Действие повторено');}
 let themeColors=['#00b4ffff','#ff0000ff','#00e888ff','#ffb400ff','#a070d0ff','#ffffffff','#000000cc'];
 let snapEnabled=true;
 
@@ -222,6 +240,18 @@ const SEN={
   CLOCKSEC:    {l:'Clock (seconds)',    u:'',     s:'09:34:56 PM',max:null, cat:'time'},
   DATE:        {l:'Date',              u:'',     s:'16-06-2026', max:null, cat:'time'},
   WEEKDAY:     {l:'Day of Week',        u:'',     s:'Tuesday',    max:null, cat:'time'},
+  // Live weather values supplied by DS916Tray's configured weather provider.
+  WEATHER_CITY:       {l:'Weather: City',             u:'', s:'Москва', max:null, cat:'weather'},
+  WEATHER_TEMP:       {l:'Weather: Temperature',      u:'°C', s:18, max:null, cat:'weather'},
+  WEATHER_TEMP_TEXT:  {l:'Weather: Temperature text', u:'', s:'+18 °C', max:null, cat:'weather'},
+  WEATHER_DESC:       {l:'Weather: Conditions',       u:'', s:'Переменная облачность', max:null, cat:'weather'},
+  WEATHER_FEELS_TEXT: {l:'Weather: Feels like',       u:'', s:'Ощущается как: +17 °C', max:null, cat:'weather'},
+  WEATHER_DETAIL:     {l:'Weather: Wind / details',   u:'', s:'Ветер 3 м/с', max:null, cat:'weather'},
+  WEATHER_UPDATED_TEXT:{l:'Weather: Updated',         u:'', s:'Обновлено: 12:00', max:null, cat:'weather'},
+  NOW_PLAYING_SOURCE: {l:'Active player',             u:'', s:'▶ Яндекс Музыка', max:null, cat:'dashboard'},
+  NOW_PLAYING_TITLE:  {l:'Track title',                u:'', s:'Название трека', max:null, cat:'dashboard'},
+  NOW_PLAYING_ARTIST: {l:'Artist',                     u:'', s:'Исполнитель', max:null, cat:'dashboard'},
+  NOW_PLAYING_REMAINING:{l:'Track remaining',           u:'', s:'—:—', max:null, cat:'dashboard'},
   // CPU
   CPU_USAGE:   {l:'CPU Usage',          u:'%',    s:42,  max:100,  cat:'cpu'},
   CPU_TEMP:    {l:'CPU Temp',           u:'\u00B0C', s:52, max:110, cat:'cpu'},
@@ -244,6 +274,9 @@ const SEN={
   RAM_FREE_GB: {l:'RAM Free',           u:'GB',   s:6.7, max:128,  cat:'ram'},
   RAM_TOTAL:   {l:'RAM Total',          u:'GB',   s:16,  max:null, cat:'ram'},
   // Storage
+  DISK_C_USED_GB:{l:'C: Used Space', u:'GB', s:310, max:2000, cat:'storage'},
+  DISK_C_FREE_GB:{l:'C: Free Space', u:'GB', s:190, max:2000, cat:'storage'},
+  DISK_C_USED_PCT:{l:'C: Used Percent', u:'%', s:62, max:100, cat:'storage'},
   DISK_USAGE:  {l:'Disk Usage',         u:'%',    s:62,  max:100,  cat:'storage'},
   DISK_USED:   {l:'Disk Used',          u:'GB',   s:310, max:2000, cat:'storage'},
   DISK_FREE:   {l:'Disk Free',          u:'GB',   s:190, max:2000, cat:'storage'},
@@ -357,9 +390,10 @@ const CATS=[
   {id:'network',     label:'🌐 Network'},
   {id:'framerate',   label:'🎯 Framerate'},
   {id:'system',      label:'⚙ System'},
+  {id:'dashboard',   label:'🌦 Weather & Player'},
   {id:'_static',     label:'✏ Static / Decorative'},
 ];
-const DEFAULT_OPEN_CATS=new Set(['time','cpu','gpu','ram','storage','motherboard','network','framerate','_static']);
+const DEFAULT_OPEN_CATS=new Set(['time','cpu','gpu','ram','storage','motherboard','network','framerate','dashboard','_static']);
 
 function buildPalette(){
   const el=$('elist');el.innerHTML='';
@@ -379,6 +413,16 @@ function buildPalette(){
     if(cat.id==='_static'){
       items.appendChild(makeEi('static','','','Static Label','Custom text','ic-s','_static'));
       items.appendChild(makeEi('rect','','','Rectangle','Divider / block','ic-d','_static'));
+    } else if(cat.id==='dashboard'){
+      items.appendChild(makeEi('preset_weather','','','Weather block','Add editable weather elements','ic-d','dashboard'));
+      items.appendChild(makeEi('preset_player','','','Music player block','Add editable player elements','ic-p','dashboard'));
+      items.appendChild(makeEi('preset_cpu','','','CPU panel','Live CPU usage, temperature and load bar','ic-b','dashboard'));
+      items.appendChild(makeEi('preset_gpu','','','GPU panel','Live GPU usage, temperature and VRAM','ic-b','dashboard'));
+      items.appendChild(makeEi('preset_disk','','','Disk space panel','Live used/free space and usage bar','ic-b','dashboard'));
+      items.appendChild(makeEi('weathericon','','','Weather icon','Live animated weather icon','ic-d','dashboard'));
+      items.appendChild(makeEi('weatherparticles','','','Weather particles','Animated rain/snow particles inside this area','ic-d','dashboard'));
+      items.appendChild(makeEi('equalizer','','','Player equalizer','Preview equalizer element','ic-p','dashboard'));
+      items.appendChild(makeEi('image_sensor','','','Album cover','Player cover placeholder','ic-s','dashboard'));
     } else {
       for(const [key,s] of Object.entries(SEN).filter(([k,v])=>v.cat===cat.id)){
         if(!visibleSensors.has(key))continue;
@@ -422,7 +466,18 @@ function makeEi(type,key,unit,label,sub,iconCls,cat){
   const ico=iconCls==='ic-b'?'▬':iconCls==='ic-r'?'○':iconCls==='ic-l'?'〜':iconCls==='ic-t'?'V':iconCls==='ic-s'||iconCls==='ic-p'?'T':'·';
   div.innerHTML=`<div class="eico ${iconCls}">${ico}</div><div><div class="elabel">${label}</div>${sub?`<div class="esub">${sub}</div>`:''}</div>`;
   div.addEventListener('dragstart',e=>{palDrag={type,key,unit,isPreset:type==='preset'};e.dataTransfer.effectAllowed='copy';e.dataTransfer.setData('text/plain','pal');});
-  div.addEventListener('click',()=>add(type,key,unit,null,null,type==='preset'));
+  div.addEventListener('click',()=>{
+    if(type==='preset_weather'){addDashboardPreset('weather');return;}
+    if(type==='preset_player'){addDashboardPreset('player');return;}
+    if(type==='preset_cpu'){addDashboardPreset('cpu');return;}
+    if(type==='preset_gpu'){addDashboardPreset('gpu');return;}
+    if(type==='preset_disk'){addDashboardPreset('disk');return;}
+    if(['weathericon','weatherparticles','diskspace','equalizer','image_sensor'].includes(type)){
+      const dims=type==='weathericon'?{w:80,h:80,iconSize:72,color:'#8bd5ffff'}:type==='weatherparticles'?{w:180,h:100,particleMode:'auto',particleCount:24,particleColor:'#d7efffff'}:type==='diskspace'?{w:410,h:300,title:'DRIVE SPACE',fontFamily:'Segoe UI',titleFontSize:16,fontSize:13,color:'#ffffffff',mutedColor:'#b8c7d9ff',fillColor:'#00e888ff',trackColor:'#263443ff',bgColor:'#101c2be8',cornerRadius:12}:type==='equalizer'?{w:180,h:48,barCount:24,barGap:3,fillColor:'#00b4ffff',bgColor:'#17232f00'}:{w:120,h:120,coverColor:'#25364aff'};
+      addElem(Object.assign({id:genId(),type,x:24,y:120,z:nextZ(),visible:true,screenMode:activeScreenMode},dims));return;
+    }
+    add(type,key,unit,null,null,type==='preset');
+  });
   return div;
 }
 
@@ -481,6 +536,58 @@ function saveSensorPicker(mbg){
 }
 
 // ── ORIENTATION & ZOOM ────────────────────────────────────────────────────────
+function setScreenMode(mode){
+  activeScreenMode=mode;
+  for(const m of ['gaming','work','idle']){
+    const b=$('mode'+m[0].toUpperCase()+m.slice(1));if(b)b.classList.toggle('active',m===mode);
+  }
+  for(const el of elems){const d=$(el.id);if(d)d.style.display=(el.visible!==false&&(!el.screenMode||el.screenMode==='all'||el.screenMode===mode))?'':'none';}
+  refreshLayers();
+  $('ssz').textContent=CW+' × '+CH+' · '+mode;
+}
+function addDashboardPreset(kind,dropX=null,dropY=null){
+  pushUndo();historyMuted=true;
+  const mode=activeScreenMode,x=dropX==null?24:dropX,y=dropY==null?(kind==='weather'?Math.max(80,Math.round(CH*.72)):Math.max(80,Math.round(CH*.36))):dropY;
+  const make=(type,p)=>Object.assign({id:genId(),type,x:p.x??x,y:p.y??y,z:nextZ(),visible:true,screenMode:mode},p);
+  if(kind==='weather'){
+    addElem(make('rect',{w:410,h:178,fillColor:'#101c2be8',cornerRadius:12,manualSize:true}));
+    addElem(make('static',{x:x+16,y:y+10,w:180,h:25,fontSize:17,fontFamily:'Segoe UI',color:'#8bd5ffff',bold:true,customText:'ПОГОДА',manualSize:true}));
+    addElem(make('text',{x:x+120,y:y+10,w:265,h:25,fontSize:15,fontFamily:'Segoe UI',color:'#b8c7d9ff',bold:true,sensorKey:'WEATHER_CITY',manualSize:true}));
+    addElem(make('weathericon',{x:x+16,y:y+48,w:88,h:88,iconSize:80,color:'#8bd5ffff'}));
+    addElem(make('text',{x:x+120,y:y+44,w:250,h:34,fontSize:25,fontFamily:'Segoe UI',color:'#ffffffff',bold:true,sensorKey:'WEATHER_TEMP_TEXT',manualSize:true}));
+    addElem(make('text',{x:x+120,y:y+80,w:265,h:25,fontSize:15,fontFamily:'Segoe UI',color:'#ffffffff',bold:true,sensorKey:'WEATHER_DESC',manualSize:true}));
+    addElem(make('text',{x:x+120,y:y+108,w:270,h:22,fontSize:13,fontFamily:'Segoe UI',color:'#b8c7d9ff',sensorKey:'WEATHER_FEELS_TEXT',manualSize:true}));
+    addElem(make('text',{x:x+16,y:y+147,w:375,h:20,fontSize:13,fontFamily:'Segoe UI',color:'#b8c7d9ff',sensorKey:'WEATHER_DETAIL',manualSize:true}));
+  } else if(kind==='player'){
+    addElem(make('rect',{w:410,h:210,fillColor:'#121820ee',cornerRadius:12,manualSize:true}));
+    addElem(make('text',{x:x+16,y:y+12,w:370,h:26,fontSize:14,fontFamily:'Segoe UI',color:'#8bd5ffff',bold:true,sensorKey:'NOW_PLAYING_SOURCE',manualSize:true}));
+    addElem(make('image_sensor',{x:x+16,y:y+48,w:112,h:112,coverColor:'#25364aff',sensorKey:'NOW_PLAYING_ART_BYTES'}));
+    addElem(make('text',{x:x+144,y:y+55,w:240,h:32,fontSize:20,fontFamily:'Segoe UI',color:'#ffffffff',bold:true,sensorKey:'NOW_PLAYING_TITLE',manualSize:true}));
+    addElem(make('text',{x:x+144,y:y+91,w:230,h:25,fontSize:15,fontFamily:'Segoe UI',color:'#ffffffff',sensorKey:'NOW_PLAYING_ARTIST',manualSize:true}));
+    addElem(make('text',{x:x+144,y:y+119,w:160,h:22,fontSize:14,fontFamily:'Segoe UI',color:'#8bd5ffff',bold:true,sensorKey:'NOW_PLAYING_REMAINING',manualSize:true}));
+    addElem(make('equalizer',{x:x+144,y:y+125,w:220,h:36,barCount:28,barGap:3,fillColor:'#00b4ffff',bgColor:'#17232f00'}));
+  } else if(kind==='cpu'){
+    addElem(make('rect',{w:410,h:150,fillColor:'#101c2be8',cornerRadius:12,manualSize:true}));
+    addElem(make('static',{x:x+14,y:y+10,w:370,h:24,fontSize:16,fontFamily:'Segoe UI',color:'#8bd5ffff',bold:true,customText:'CPU',manualSize:true}));
+    addElem(make('text',{x:x+14,y:y+42,w:180,h:26,fontSize:20,fontFamily:'Segoe UI',color:'#ffffffff',bold:true,sensorKey:'CPU_USAGE',unit:'%',manualSize:true}));
+    addElem(make('text',{x:x+210,y:y+44,w:180,h:22,fontSize:15,fontFamily:'Segoe UI',color:'#b8c7d9ff',sensorKey:'CPU_TEMP',unit:'°C',manualSize:true}));
+    addElem(make('bar',{x:x+14,y:y+82,w:380,h:18,sensorKey:'CPU_USAGE',maxValue:100,fillColor:'#00b4ffff',bgColor:'#263443ff',cornerRadius:5,manualSize:true}));
+    addElem(make('text',{x:x+14,y:y+110,w:380,h:22,fontSize:13,fontFamily:'Segoe UI',color:'#b8c7d9ff',sensorKey:'CPU_POWER',unit:'W',manualSize:true}));
+  } else if(kind==='gpu'){
+    addElem(make('rect',{w:410,h:150,fillColor:'#101c2be8',cornerRadius:12,manualSize:true}));
+    addElem(make('static',{x:x+14,y:y+10,w:370,h:24,fontSize:16,fontFamily:'Segoe UI',color:'#8bd5ffff',bold:true,customText:'GPU',manualSize:true}));
+    addElem(make('text',{x:x+14,y:y+42,w:180,h:26,fontSize:20,fontFamily:'Segoe UI',color:'#ffffffff',bold:true,sensorKey:'GPU_USAGE',unit:'%',manualSize:true}));
+    addElem(make('text',{x:x+210,y:y+44,w:180,h:22,fontSize:15,fontFamily:'Segoe UI',color:'#b8c7d9ff',sensorKey:'GPU_TEMP',unit:'°C',manualSize:true}));
+    addElem(make('bar',{x:x+14,y:y+82,w:380,h:18,sensorKey:'GPU_USAGE',maxValue:100,fillColor:'#a070d0ff',bgColor:'#263443ff',cornerRadius:5,manualSize:true}));
+    addElem(make('text',{x:x+14,y:y+110,w:180,h:22,fontSize:14,fontFamily:'Segoe UI',color:'#b8c7d9ff',sensorKey:'VRAM_USAGE',unit:'%',manualSize:true}));
+    addElem(make('text',{x:x+210,y:y+110,w:180,h:22,fontSize:14,fontFamily:'Segoe UI',color:'#b8c7d9ff',sensorKey:'GPU_POWER',unit:'W',manualSize:true}));
+  } else if(kind==='disk'){
+    // One dynamic panel; DS916Tray fills it with every mounted drive at runtime.
+    addElem(make('diskspace',{x,y,w:410,h:300,title:'DRIVE SPACE',fontFamily:'Segoe UI',titleFontSize:16,fontSize:13,
+      color:'#ffffffff',mutedColor:'#b8c7d9ff',fillColor:'#00e888ff',trackColor:'#263443ff',bgColor:'#101c2be8',cornerRadius:12,manualSize:true}));
+  }
+  historyMuted=false;setScreenMode(mode);refreshLayers();updStatus();toast(kind==='weather'?'Weather block added':kind==='player'?'Music player block added':kind.toUpperCase()+' panel added');
+}
 function setOri(o){
   ori=o;CW=o==='vertical'?462:1920;CH=o==='vertical'?1920:462;
   $('btnV').classList.toggle('active',o==='vertical');
@@ -533,10 +640,34 @@ function cwDragOver(e){e.preventDefault();e.dataTransfer.dropEffect='copy';}
 function cwDrop(e){
   e.preventDefault();if(!palDrag)return;
   const cr=$('canvas').getBoundingClientRect();
-  add(palDrag.type,palDrag.key,palDrag.unit,
-    Math.round((e.clientX-cr.left)/zoom),
-    Math.round((e.clientY-cr.top)/zoom),palDrag.isPreset);
-  palDrag=null;
+  const x=Math.max(0,Math.round((e.clientX-cr.left)/zoom));
+  const y=Math.max(0,Math.round((e.clientY-cr.top)/zoom));
+  const item=palDrag;palDrag=null;
+  // Compound dashboard cards must be expanded into their child elements, not
+  // passed to add() as a renderer-less pseudo-element.
+  if(item.type==='preset_weather'){addDashboardPreset('weather',x,y);return;}
+  if(item.type==='preset_player'){addDashboardPreset('player',x,y);return;}
+  if(item.type==='preset_cpu'){addDashboardPreset('cpu',x,y);return;}
+  if(item.type==='preset_gpu'){addDashboardPreset('gpu',x,y);return;}
+  if(item.type==='preset_disk'){addDashboardPreset('disk',x,y);return;}
+  // Dashboard primitives have their own defaults and renderers.
+  if(['weathericon','weatherparticles','diskspace','equalizer','image_sensor'].includes(item.type)){
+    const dims=item.type==='weathericon'?{w:80,h:80,iconSize:72,color:'#8bd5ffff'}:
+      item.type==='weatherparticles'?{w:180,h:100,particleMode:'auto',particleCount:24,particleColor:'#d7efffff'}:
+      item.type==='diskspace'?{w:410,h:300,title:'DRIVE SPACE',fontFamily:'Segoe UI',titleFontSize:16,fontSize:13,color:'#ffffffff',mutedColor:'#b8c7d9ff',fillColor:'#00e888ff',trackColor:'#263443ff',bgColor:'#101c2be8',cornerRadius:12}:
+      item.type==='equalizer'?{w:180,h:48,barCount:24,barGap:3,fillColor:'#00b4ffff',bgColor:'#17232f00'}:
+      {w:120,h:120,coverColor:'#25364aff'};
+    addElem(Object.assign({id:genId(),type:item.type,x,y,z:nextZ(),visible:true,screenMode:activeScreenMode},dims));
+    return;
+  }
+  // Rectangles dropped from the decorative palette should be visible cards,
+  // not the 3px divider used by the original generic rectangle action.
+  if(item.type==='rect'){
+    addElem({id:genId(),type:'rect',x,y,z:nextZ(),visible:true,screenMode:activeScreenMode,
+      w:Math.min(400,CW-x),h:Math.min(180,CH-y),fillColor:'#00b4ff66',cornerRadius:12,manualSize:true});
+    return;
+  }
+  add(item.type,item.key,item.unit,x,y,item.isPreset);
 }
 
 function add(type,key,unit,x,y,isPreset){
@@ -549,14 +680,14 @@ function add(type,key,unit,x,y,isPreset){
     const lbl={id:genId(),type:'static',sensorKey:'',x,y,z:nextZ(),visible:true,
       customText:(s.l||key),w:200,h:28,fontSize:18,fontFamily:'Consolas',
       color:'#888899ff',bold:false,align:'left',unit:'',manualSize:false};
-    elems.push(lbl);renderEl(lbl);
+    pushUndo();elems.push(lbl);renderEl(lbl);
     refreshLayers();sel(lbl.id);updStatus();return;
   }
 
   const id=genId();const z=nextZ();
   // Determine the actual type for time-related keys
   const actualType = key==='CLOCK'?'clock':key==='CLOCKSEC'?'clock':key==='DATE'?'date':key==='WEEKDAY'?'weekday':type;
-  let el={id,type:actualType,sensorKey:key,unit:unit||s.u||'',x,y,z,visible:true,prefix:'',manualSize:false};
+  let el={id,type:actualType,sensorKey:key,unit:unit||s.u||'',x,y,z,visible:true,prefix:'',manualSize:false,screenMode:activeScreenMode};
 
   if(['text','static','clock','date','weekday'].includes(actualType)){
     Object.assign(el,{w:200,h:50,fontSize:32,fontFamily:'Consolas',color:'#ffffffff',bold:false,
@@ -577,10 +708,20 @@ function add(type,key,unit,x,y,isPreset){
     Object.assign(el,{w:400,h:3,fillColor:'#00b4ff66',cornerRadius:0,manualSize:true});
   } else if(actualType==='image'){
     Object.assign(el,{w:CW,h:CH,data:null,filename:'',manualSize:true});
+  } else if(actualType==='weathericon'){
+    Object.assign(el,{w:80,h:80,iconSize:72,color:'#8bd5ffff',previewIcon:'☁',manualSize:true});
+  } else if(actualType==='weatherparticles'){
+    Object.assign(el,{w:180,h:100,particleMode:'auto',particleCount:24,particleColor:'#d7efffff',particleSpeed:1,manualSize:true});
+  } else if(actualType==='diskspace'){
+    Object.assign(el,{w:410,h:300,title:'DRIVE SPACE',fontFamily:'Segoe UI',titleFontSize:16,fontSize:13,color:'#ffffffff',mutedColor:'#b8c7d9ff',fillColor:'#00e888ff',trackColor:'#263443ff',bgColor:'#101c2be8',cornerRadius:12,manualSize:true});
+  } else if(actualType==='equalizer'){
+    Object.assign(el,{w:180,h:48,barCount:24,barGap:3,fillColor:'#00b4ffff',bgColor:'#17232f00',manualSize:true});
+  } else if(actualType==='image_sensor'){
+    Object.assign(el,{w:120,h:120,coverColor:'#25364aff',manualSize:true});
   }
   addElem(el);
 }
-function addElem(el){elems.push(el);renderEl(el);refreshLayers();sel(el.id);updStatus();}
+function addElem(el){pushUndo();elems.push(el);renderEl(el);refreshLayers();sel(el.id);updStatus();}
 
 // ── RENDER ELEMENT ────────────────────────────────────────────────────────────
 const TEXT_TYPES=new Set(['text','static','clock','date','weekday']);
@@ -593,8 +734,10 @@ function renderEl(el){
     div.innerHTML='<div class="ei2"></div><div class="rh"></div><div class="lz"></div>';
     canvas.appendChild(div);
     makeDrag(div,el);makeResize(div,el);
-    div.addEventListener('click',e=>{e.stopPropagation();sel(el.id);});
-    div.addEventListener('dblclick',e=>{e.stopPropagation();if(el.type==='static')promptRename(el);});
+    // Selection is handled on mousedown in makeDrag(). Do not toggle it again
+    // on click: that caused Shift-selection to randomly add/remove an item twice.
+    div.addEventListener('click',e=>{e.stopPropagation();});
+    div.addEventListener('dblclick',e=>{e.stopPropagation();sel(el.id);const t=document.querySelector('#pc input[onchange*=customText]');if(t){t.focus();t.select();}});
   }
 
   const isText=TEXT_TYPES.has(el.type);
@@ -602,7 +745,7 @@ function renderEl(el){
   const autosize=isText&&!el.manualSize;
 
   div.style.left=el.x+'px';div.style.top=el.y+'px';
-  div.style.zIndex=el.z+10;div.style.display=el.visible?'':'none';
+  div.style.zIndex=el.z+10;div.style.display=(el.visible!==false&&(!el.screenMode||el.screenMode==='all'||el.screenMode===activeScreenMode))?'':'none';
   if(el.type!=='image')div.style.pointerEvents='';
 
   if(autosize){
@@ -615,6 +758,18 @@ function renderEl(el){
   }
   div.querySelector('.lz').textContent='z:'+el.z;
   const inner=div.querySelector('.ei2');
+  // Per-element background image and rounded clipping apply to every block.
+  div.style.borderRadius=Math.max(0,Number(el.cornerRadius)||0)+'px';
+  div.style.overflow='hidden';
+  if(el.bgImageData){
+    div.style.backgroundImage=`url("${el.bgImageData}")`;
+    div.style.backgroundSize=el.bgImageFit||'cover';
+    div.style.backgroundPosition='center';
+    div.style.backgroundRepeat='no-repeat';
+  }else{
+    div.style.backgroundImage='none';
+    div.style.backgroundColor=el.blockColor?a2css(el.blockColor):'transparent';
+  }
 
   // ── Text/clock/date/weekday ─────────────────────────────────────────────
   if(isText){
@@ -634,7 +789,7 @@ function renderEl(el){
       // sensor text
       txt=(el.prefix||'')+pVal(el.sensorKey)+((el.unit)?(' '+el.unit):'');
     }
-    const ss=`font-size:${el.fontSize||32}px;font-family:'${el.fontFamily||'Consolas'}',monospace,sans-serif;color:${a2css(el.color||'#ffffffff')};font-weight:${el.bold?700:400};white-space:nowrap;line-height:1.15;display:inline-block`;
+    const ss=`font-size:${el.fontSize||32}px;font-family:'${el.fontFamily||'Consolas'}',monospace,sans-serif;color:${a2css(el.color||'#ffffffff')};font-weight:${el.bold?700:400};font-style:${el.italic?'italic':'normal'};text-decoration:${el.underline?'underline':'none'};letter-spacing:${el.letterSpacing||0}px;white-space:nowrap;line-height:1.15;display:inline-block`;
     if(autosize){
       inner.style.cssText='position:absolute;top:0;left:0;white-space:nowrap;overflow:visible';
       inner.innerHTML=`<span style="${ss}">${txt}</span>`;
@@ -762,8 +917,31 @@ function renderEl(el){
   } else if(el.type==='rect'){
     inner.innerHTML=`<div style="width:100%;height:100%;background:${a2css(el.fillColor||'#00b4ff66')};border-radius:${el.cornerRadius||0}px"></div>`;
 
+  } else if(el.type==='monthcalendar'){
+    const days=['ПН','ВТ','СР','ЧТ','ПТ','СБ','ВС'];
+    const cells=Array.from({length:35},(_,i)=>{const d=i-1;const n=d+1;return `<span style="display:flex;align-items:center;justify-content:center;color:${n===16?a2css(el.accentColor||'#00b4ffff'):a2css(el.color||'#ffffffff')};background:${n===16?a2css((el.accentColor||'#00b4ff')+'33'):'transparent'};font-size:${el.fontSize||12}px">${n>0&&n<=31?n:''}</span>`}).join('');
+    inner.innerHTML=`<div style="width:100%;height:100%;padding:6px;background:${a2css(el.bgColor||'#101820cc')};color:${a2css(el.color||'#ffffffff')};font-family:'Segoe UI',sans-serif;overflow:hidden"><div style="text-align:center;font-size:${el.titleFontSize||16}px;color:${a2css(el.accentColor||'#00b4ffff')};margin-bottom:5px">ИЮНЬ 2026</div><div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center"><span style="display:contents">${days.map(d=>`<b style="font-size:${el.headerFontSize||10}px">${d}</b>`).join('')}</span>${cells}</div></div>`;
+  } else if(el.type==='diskspace'){
+    const drives=[['C:',68,32],['D:',42,58],['E:',81,19],['F:',27,73]];
+    const rows=drives.map((d,i)=>`<div style="margin-top:6px;font-size:${el.fontSize||13}px;color:${a2css(el.color||'#ffffffff')}"><div style="display:flex;justify-content:space-between;gap:6px"><b>${d[0]}</b><span>${d[1]}% used · ${100-d[1]} GB free</span></div><div style="height:5px;background:${a2css(el.trackColor||'#263443ff')};border-radius:4px;overflow:hidden;margin-top:2px"><div style="height:100%;width:${d[1]}%;background:${a2css(el.fillColor||'#00e888ff')}"></div></div></div>`).join('');
+    inner.innerHTML=`<div style="width:100%;height:100%;box-sizing:border-box;padding:10px;background:${a2css(el.bgColor||'#101c2be8')};border-radius:${el.cornerRadius||0}px;overflow:hidden;font-family:'Segoe UI',sans-serif"><div style="color:${a2css(el.fillColor||'#00e888ff')};font-size:${el.titleFontSize||16}px;font-weight:bold">${el.title||'DRIVE SPACE'}</div>${rows}</div>`;
+  } else if(el.type==='weathericon'){
+    const fs=Math.max(12,Math.min(el.w||68,el.h||68,el.iconSize||el.w||68));
+    const weatherGlyphs={auto:el.previewIcon||'☁',clear_day:'☀',clear_night:'☾',cloudy:'☁',fog:'≋',rain:'🌧',heavy_rain:'🌧',snow:'❄',heavy_snow:'❄',thunderstorm:'⛈'};
+    const weatherGlyph=weatherGlyphs[el.weatherMode||'auto']||'☁';
+    inner.innerHTML=`<div title="Weather mode: ${el.weatherMode||'auto'}" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:${fs}px;color:${a2css(el.color||'#8bd5ffff')};line-height:1">${weatherGlyph}</div>`;
+  } else if(el.type==='weatherparticles'){
+    const count=Math.max(4,Math.min(80,el.particleCount||24)), col=a2css(el.particleColor||'#d7efffff');
+    const dots=Array.from({length:count},(_,i)=>{const left=(i*37+13)%97, top=(i*53+7)%93, size=2+(i%3);return `<i style=\"position:absolute;left:${left}%;top:${top}%;width:${size}px;height:${el.particleMode==='snow'?size:size*2}px;background:${col};border-radius:${el.particleMode==='snow'?'50%':'2px'};opacity:.8;transform:rotate(${el.particleMode==='snow'?0:18}deg)\"></i>`}).join('');
+    inner.innerHTML=`<div style=\"position:relative;width:100%;height:100%;overflow:hidden;background:${a2css(el.bgColor||'#17232f00')};border-radius:${el.cornerRadius||0}px\">${dots}</div>`;
+  } else if(el.type==='equalizer'){
+    const count=Math.max(5,Math.min(64,el.barCount||24)),gap=Math.max(1,el.barGap||3);
+    const bars=Array.from({length:count},(_,i)=>{const ht=18+((i*17+7)%72);return `<i style="display:block;flex:1;max-width:12px;height:${ht}%;background:${a2css(el.fillColor||'#00b4ffff')};border-radius:2px;align-self:center"></i>`}).join('');
+    inner.innerHTML=`<div style="width:100%;height:100%;display:flex;align-items:center;gap:${gap}px;padding:2px;background:${a2css(el.bgColor||'#17232f00')};overflow:hidden">${bars}</div>`;
+  } else if(el.type==='image_sensor'){
+    inner.innerHTML=`<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;background:${a2css(el.coverColor||'#25364aff')};color:${a2css(el.color||'#ffffffff')};border-radius:4px;font-size:${Math.min(el.w,el.h)*.38}px;gap:4px"><span>♫</span><small style="font-size:10px">Album cover</small></div>`;
   } else if(el.type==='image'){
-    div.style.pointerEvents='none';
+    div.style.pointerEvents='';
     if(el.data){inner.innerHTML=`<img src="${el.data}" style="width:100%;height:100%;object-fit:cover;display:block;pointer-events:none">`;}
     else{inner.innerHTML=`<div class="iph">📷<span>${el.filename||'image'}</span></div>`;}
   }
@@ -773,13 +951,14 @@ function renderEl(el){
 function makeDrag(div,el){
   div.addEventListener('mousedown',e=>{
     if(e.target.classList.contains('rh')||e.button!==0)return;
-    e.preventDefault();sel(el.id);
-    const ox=e.clientX,oy=e.clientY,ex=el.x,ey=el.y;
+    e.preventDefault();if(!selectedIds.has(el.id))sel(el.id,e.shiftKey);else selId=el.id;
+    const moving=[...selectedIds].map(id=>elems.find(a=>a.id===id)).filter(Boolean);
+    const ox=e.clientX,oy=e.clientY,starts=moving.map(a=>({el:a,x:a.x,y:a.y}));
+    pushUndo();
     const mm=e2=>{
-      let nx=Math.round(ex+(e2.clientX-ox)/zoom);
-      let ny=Math.round(ey+(e2.clientY-oy)/zoom);
-      if(snapEnabled){const s=doSnap(nx,ny,el.w||0,el.h||0,el.id);nx=s.x;ny=s.y;}
-      el.x=nx;el.y=ny;div.style.left=nx+'px';div.style.top=ny+'px';updPosInputs(el);
+      const dx=Math.round((e2.clientX-ox)/zoom),dy=Math.round((e2.clientY-oy)/zoom);
+      for(const st of starts){st.el.x=st.x+dx;st.el.y=st.y+dy;const node=$(st.el.id);if(node){node.style.left=st.el.x+'px';node.style.top=st.el.y+'px';}}
+      const current=elems.find(a=>a.id===selId);if(current)updPosInputs(current);
     };
     const mu=()=>{hideSnaps();document.removeEventListener('mousemove',mm);document.removeEventListener('mouseup',mu);};
     document.addEventListener('mousemove',mm);document.addEventListener('mouseup',mu);
@@ -791,80 +970,19 @@ function makeResize(div,el){
   const rh=div.querySelector('.rh');
   rh.addEventListener('mousedown',e=>{
     e.stopPropagation();e.preventDefault();
-
-    const isTextEl=TEXT_TYPES.has(el.type);
-
-    // For text: drag scales font size. For others: drag scales w/h.
-    if(isTextEl){
-      // For text: drag scales font size. RO on the span keeps div sized correctly.
-      if(div._ro){div._ro.disconnect();div._ro=null;}
-      const startFont=el.fontSize||32;
-      const ox=e.clientX,oy=e.clientY;
-
-      // Re-attach RO now so it tracks size throughout the drag
-      const span=div.querySelector('span');
-      if(span){
-        div._ro=new ResizeObserver(()=>{
-          if(!div.isConnected||!span)return;
-          const w=Math.ceil(span.offsetWidth)||1;
-          const h=Math.ceil(span.offsetHeight)||1;
-          div.style.width=w+'px';
-          div.style.height=h+'px';
-          el.w=w; el.h=h;
-          updSizeInputs(el);
-        });
-        div._ro.observe(span);
-      }
-
-      const mm=e2=>{
-        const dx=(e2.clientX-ox)/zoom,dy=(e2.clientY-oy)/zoom;
-        el.fontSize=Math.max(6,Math.round(startFont+(dx+dy)/2));
-        // Update span font size — RO will fire and sync div size automatically
-        if(span) span.style.fontSize=el.fontSize+'px';
-        updSizeInputs(el);
-      };
-      const mu=()=>{
-        // Full re-render on release to persist font size properly
-        renderEl(el);
-        if(selId===el.id) renderProps(el);
-        document.removeEventListener('mousemove',mm);
-        document.removeEventListener('mouseup',mu);
-      };
-      document.addEventListener('mousemove',mm);
-      document.addEventListener('mouseup',mu);
-
-    } else {
-      // Non-text: resize w/h
-      if(div._ro){div._ro.disconnect();div._ro=null;}
-      const startW=Math.ceil(div.offsetWidth)||el.w||100;
-      const startH=Math.ceil(div.offsetHeight)||el.h||30;
-      el.w=startW; el.h=startH;
-      el.manualSize=true;
-      div.classList.remove('autosize');div.classList.add('fixed');
-      div.style.width=startW+'px';div.style.height=startH+'px';
-
-      const ox=e.clientX,oy=e.clientY;
-      const mm=e2=>{
-        const dx=(e2.clientX-ox)/zoom,dy=(e2.clientY-oy)/zoom;
-        if(el.type==='ring'){
-          const d=Math.max(dx,dy);
-          el.w=Math.max(20,Math.round(startW+d));el.h=el.w;
-        } else {
-          el.w=Math.max(10,Math.round(startW+dx));
-          el.h=Math.max(4,Math.round(startH+dy));
-        }
-        div.style.width=el.w+'px';div.style.height=el.h+'px';
-        updSizeInputs(el);
-      };
-      const mu=()=>{
-        renderEl(el);
-        if(selId===el.id) renderProps(el);
-        document.removeEventListener('mousemove',mm);
-        document.removeEventListener('mouseup',mu);
-      };
-      document.addEventListener('mousemove',mm);
-      document.addEventListener('mouseup',mu);
-    }
+    if(div._ro){div._ro.disconnect();div._ro=null;}
+    const startW=Math.max(20,Math.ceil(div.getBoundingClientRect().width/zoom)||el.w||100);
+    const startH=Math.max(16,Math.ceil(div.getBoundingClientRect().height/zoom)||el.h||30);
+    const ox=e.clientX,oy=e.clientY;pushUndo();
+    el.manualSize=true;el.w=startW;el.h=startH;
+    const mm=e2=>{
+      const dx=(e2.clientX-ox)/zoom,dy=(e2.clientY-oy)/zoom;
+      if(el.type==='ring'){el.w=Math.max(20,Math.round(startW+Math.max(dx,dy)));el.h=el.w;}
+      else {el.w=Math.max(20,Math.round(startW+dx));el.h=Math.max(16,Math.round(startH+dy));}
+      div.style.width=el.w+'px';div.style.height=el.h+'px';div.classList.remove('autosize');div.classList.add('fixed');updSizeInputs(el);
+    };
+    const mu=()=>{renderEl(el);if(selId===el.id)renderProps(el);document.removeEventListener('mousemove',mm);document.removeEventListener('mouseup',mu);};
+    document.addEventListener('mousemove',mm);document.addEventListener('mouseup',mu);
   });
 }
 
@@ -897,40 +1015,100 @@ function doSnap(x,y,w,h,skipId){
 function hideSnaps(){$('snapH').classList.remove('show');$('snapV').classList.remove('show');}
 
 // ── SELECT ────────────────────────────────────────────────────────────────────
-function sel(id){
-  document.querySelectorAll('.ce').forEach(d=>d.classList.remove('sel'));
+function sel(id,additive=false){
+  if(!additive)selectedIds.clear();
+  if(id&&additive&&selectedIds.has(id))selectedIds.delete(id);else if(id)selectedIds.add(id);
+  document.querySelectorAll('.ce').forEach(d=>{d.classList.toggle('sel',selectedIds.has(d.id));});
   document.querySelectorAll('.lr').forEach(r=>r.classList.remove('active'));
   selId=id;
-  if(!id){renderProps(null);updStatus();return;}
+  if(!id){selectedIds.clear();renderProps(null);updStatus();return;}
   const div=document.getElementById(id);if(div)div.classList.add('sel');
   const lr=document.querySelector(`.lr[data-id="${id}"]`);if(lr)lr.classList.add('active');
   renderProps(elems.find(e=>e.id===id));updStatus();
 }
-function desel(e){if(e.target.id==='cw'||e.target.id==='co'||e.target.id==='canvas')sel(null);}
+let suppressCanvasClickUntil=0;
+function desel(e){
+  if(Date.now()<suppressCanvasClickUntil){e.preventDefault();e.stopPropagation();return;}
+  if(e.target.id==='cw'||e.target.id==='co'||e.target.id==='canvas')sel(null);
+}
+// Marquee selection: start on empty canvas, drag in viewport coordinates, then
+// suppress the synthetic click that would otherwise immediately clear selection.
+(function installMarquee(){
+  const area=$('cw'); if(!area)return;
+  let start=null, box=null, additive=false, dragging=false;
+  area.addEventListener('pointerdown',e=>{
+    if(e.button!==0 || e.target.closest('.ce,button,input,select,textarea,[contenteditable=true]')) return;
+    // Do not begin a marquee when the user starts on padding outside the canvas.
+    const canvas=$('canvas'), cr=canvas.getBoundingClientRect();
+    if(e.clientX<cr.left || e.clientX>cr.right || e.clientY<cr.top || e.clientY>cr.bottom) return;
+    start={x:e.clientX,y:e.clientY}; additive=e.shiftKey; dragging=false;
+    box=document.createElement('div'); box.id='marqueeSelectionBox';
+    box.style.cssText='position:fixed;z-index:2147483647;border:1px solid #00b4ff;background:rgba(0,180,255,.20);pointer-events:none;display:none;box-sizing:border-box';
+    document.body.appendChild(box);
+    const move=ev=>{
+      if(!start)return;
+      if(!dragging && Math.hypot(ev.clientX-start.x,ev.clientY-start.y)<4)return;
+      dragging=true;
+      Object.assign(box.style,{display:'block',left:Math.min(start.x,ev.clientX)+'px',top:Math.min(start.y,ev.clientY)+'px',width:Math.max(1,Math.abs(ev.clientX-start.x))+'px',height:Math.max(1,Math.abs(ev.clientY-start.y))+'px'});
+      ev.preventDefault();
+    };
+    const cleanup=()=>{
+      document.removeEventListener('pointermove',move,true);document.removeEventListener('pointerup',up,true);document.removeEventListener('pointercancel',up,true);
+      if(box){box.remove();box=null;}
+    };
+    const up=ev=>{
+      if(!start)return;
+      const wasDrag=dragging;
+      if(wasDrag){
+        suppressCanvasClickUntil=Date.now()+500;
+        const x1=Math.min(start.x,ev.clientX),x2=Math.max(start.x,ev.clientX),y1=Math.min(start.y,ev.clientY),y2=Math.max(start.y,ev.clientY);
+        if(!additive)selectedIds.clear();
+        for(const el of elems){
+          const n=$(el.id);if(!n||n.style.display==='none')continue;
+          const r=n.getBoundingClientRect();
+          if(r.right>=x1&&r.left<=x2&&r.bottom>=y1&&r.top<=y2)selectedIds.add(el.id);
+        }
+        selId=selectedIds.values().next().value||null;
+        document.querySelectorAll('.ce').forEach(n=>n.classList.toggle('sel',selectedIds.has(n.id)));
+        document.querySelectorAll('.lr').forEach(n=>n.classList.toggle('active',n.dataset.id===selId));
+        renderProps(elems.find(a=>a.id===selId)||null);refreshLayers();updStatus();
+        ev.preventDefault();ev.stopPropagation();
+      } else if(!additive) sel(null);
+      start=null;dragging=false;cleanup();
+    };
+    document.addEventListener('pointermove',move,true);document.addEventListener('pointerup',up,true);document.addEventListener('pointercancel',up,true);
+    e.preventDefault();
+  },true);
+})();
 function delSel(){
   if(!selId)return;
+  pushUndo();
   elems=elems.filter(e=>e.id!==selId);
   const d=document.getElementById(selId);if(d)d.remove();
   selId=null;refreshLayers();renderProps(null);updStatus();toast('Deleted');
 }
-document.addEventListener('keydown',e=>{
-  if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT'||e.target.tagName==='TEXTAREA')return;
-  if(e.key==='Delete'||e.key==='Backspace')delSel();
+function handleEditorShortcut(e){
+  const key=String(e.key||'').toLowerCase();
+  const mod=e.ctrlKey||e.metaKey;
+  if(mod && (key==='z'||e.keyCode===90)){
+    e.preventDefault();e.stopImmediatePropagation();
+    if(e.shiftKey)redo();else undo();return;
+  }
+  if(mod && (key==='y'||e.keyCode===89)){
+    e.preventDefault();e.stopImmediatePropagation();redo();return;
+  }
+  if(e.target && (e.target.tagName==='INPUT'||e.target.tagName==='SELECT'||e.target.tagName==='TEXTAREA'||e.target.isContentEditable))return;
+  if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();delSel();}
   if(e.key==='Escape')sel(null);
   if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)&&selId){
-    e.preventDefault();
-    const el=elems.find(x=>x.id===selId);if(!el)return;
-    const d=e.shiftKey?10:1;
-    if(e.key==='ArrowLeft')el.x-=d;if(e.key==='ArrowRight')el.x+=d;
-    if(e.key==='ArrowUp')el.y-=d;if(e.key==='ArrowDown')el.y+=d;
-    document.getElementById(selId).style.left=el.x+'px';
-    document.getElementById(selId).style.top=el.y+'px';updPosInputs(el);
+    e.preventDefault();const moving=[...selectedIds].map(id=>elems.find(x=>x.id===id)).filter(Boolean);if(!moving.length)return;pushUndo();const d=e.shiftKey?10:1;
+    for(const el of moving){if(e.key==='ArrowLeft')el.x-=d;if(e.key==='ArrowRight')el.x+=d;if(e.key==='ArrowUp')el.y-=d;if(e.key==='ArrowDown')el.y+=d;const n=$(el.id);if(n){n.style.left=el.x+'px';n.style.top=el.y+'px';}}
+    const el=elems.find(x=>x.id===selId);if(el)updPosInputs(el);
   }
-});
-function promptRename(el){
-  const v=prompt('Label text:',el.customText||'');
-  if(v!==null){el.customText=v;renderEl(el);if(selId===el.id)renderProps(el);}
 }
+window.addEventListener('keydown',handleEditorShortcut,true);
+document.addEventListener('keydown',handleEditorShortcut,true);
+
 
 // ── PROPERTIES ────────────────────────────────────────────────────────────────
 function sp(prop,val,re=true){
@@ -1000,6 +1178,9 @@ function fontBlock(el){
   </div>
   <div class="pr"><label>Size px</label><input type="number" value="${el.fontSize||32}" onchange="sp('fontSize',+this.value,true)" min="6" max="500"></div>
   <div class="pr"><label>Bold</label><input type="checkbox" ${el.bold?'checked':''} onchange="sp('bold',this.checked,true)"></div>
+  <div class="pr"><label>Italic</label><input type="checkbox" ${el.italic?'checked':''} onchange="sp('italic',this.checked,true)"></div>
+  <div class="pr"><label>Underline</label><input type="checkbox" ${el.underline?'checked':''} onchange="sp('underline',this.checked,true)"></div>
+  <div class="pr"><label>Letter spacing</label><input type="number" min="-5" max="30" step="0.5" value="${el.letterSpacing||0}" onchange="sp('letterSpacing',+this.value,true)"></div>
   <div class="pr"><label>Align</label><select onchange="sp('align',this.value,true)">${['left','center','right'].map(a=>`<option value="${a}" ${(el.align||'left')===a?'selected':''}>${a[0].toUpperCase()+a.slice(1)}</option>`).join('')}</select></div>
   </div>`;
 }
@@ -1019,6 +1200,13 @@ function alignBlock(){
   </div>`;
 }
 
+function chooseElementBackground(id){
+  pick('image/png,image/jpeg,image/webp,image/gif',file=>{
+    const r=new FileReader();r.onload=()=>{const el=elems.find(e=>e.id===id);if(!el)return;el.bgImageData=r.result;el.bgImageName=file.name;el.bgImageFit=el.bgImageFit||'cover';renderEl(el);renderProps(el);toast('Background image applied');};r.readAsDataURL(file);
+  });
+}
+function clearElementBackground(id){const el=elems.find(e=>e.id===id);if(!el)return;delete el.bgImageData;delete el.bgImageName;renderEl(el);renderProps(el);}
+
 function renderProps(el){
   const pc=$('pc');
   if(!el){pc.innerHTML='<div class="pe">Select an element<br>to edit its properties.</div>';return;}
@@ -1029,8 +1217,15 @@ function renderProps(el){
   <div class="pr"><label>Width</label><input type="number" id="pw" value="${Math.round(el.w||0)}" onchange="sp('w',+this.value,true)"></div>
   <div class="pr"><label>Height</label><input type="number" id="ph" value="${Math.round(el.h||0)}" onchange="sp('h',+this.value,true)"></div>
   <div class="pr"><label>Z-Order</label><input type="number" value="${el.z}" onchange="sp('z',+this.value,false)"></div>
-  </div>`+alignBlock()+`<div class="ps"><div class="pt">Visibility</div>
+  </div>`+alignBlock()+`<div class="ps"><div class="pt">Appearance</div>
+  <div class="pr"><label>Corner radius</label><input type="number" min="0" max="600" value="${el.cornerRadius||0}" onchange="sp('cornerRadius',Math.max(0,+this.value),true)"></div>
+  <div class="pr"><label>Block color</label><input type="color" value="${pickerVal(el.blockColor||((el.type==='rect')?el.fillColor:'#111827'))}" onchange="sp('blockColor',rgba2hex(parseInt(this.value.slice(1,3),16),parseInt(this.value.slice(3,5),16),parseInt(this.value.slice(5,7),16),255),true)"></div>
+  <div class="pr"><label>Background image</label><button class="pr-btn" onclick="chooseElementBackground('${el.id}')">📂 Choose…</button><button class="pr-btn" onclick="clearElementBackground('${el.id}')">✕ Remove</button></div>
+  <div class="pr"><label>Image fit</label><select onchange="sp('bgImageFit',this.value,true)"><option value="cover" ${(el.bgImageFit||'cover')==='cover'?'selected':''}>Cover</option><option value="contain" ${el.bgImageFit==='contain'?'selected':''}>Contain</option><option value="fill" ${el.bgImageFit==='fill'?'selected':''}>Stretch</option></select></div>
+  ${el.bgImageName?`<div class="pr"><label>Image</label><span style="font-size:10px;overflow:hidden;text-overflow:ellipsis">${el.bgImageName}</span></div>`:''}
+  </div><div class="ps"><div class="pt">Visibility</div>
   <div class="pr"><label>Visible</label><input type="checkbox" ${el.visible?'checked':''} onchange="sp('visible',this.checked,false);document.getElementById('${el.id}').style.display=el.visible?'':'none'"></div>
+  <div class="pr"><label>Screen</label><select onchange="sp('screenMode',this.value,true);setScreenMode(activeScreenMode)"><option value="gaming" ${el.screenMode==='gaming'?'selected':''}>Gaming</option><option value="work" ${(!el.screenMode||el.screenMode==='work')?'selected':''}>Work</option><option value="idle" ${el.screenMode==='idle'?'selected':''}>Idle</option><option value="all" ${el.screenMode==='all'?'selected':''}>All screens</option></select></div>
   </div>`;
 
   if(el.type==='clock'){
@@ -1157,6 +1352,54 @@ function renderProps(el){
     <div class="pr"><label>Corner R</label><input type="number" value="${el.cornerRadius||0}" onchange="sp('cornerRadius',+this.value,true)" min="0" max="500"></div>
     </div>`;
     h+=colorBlock('fillColor','Fill Color',el);
+  } else if(el.type==='weathericon'){
+    h+=`<div class="ps"><div class="pt">Weather icon</div>
+      <div class="pr"><label>Icon size</label><input type="number" min="12" max="300" value="${el.iconSize||Math.min(el.w,el.h)}" onchange="sp('iconSize',+this.value,true)"></div>
+      <div class="pr"><label>Weather mode</label><select onchange="sp('weatherMode',this.value,true)">
+      <option value="auto" ${(!el.weatherMode||el.weatherMode==='auto')?'selected':''}>Automatic (current weather)</option>
+      <option value="clear_day" ${el.weatherMode==='clear_day'?'selected':''}>☀ Clear day</option>
+      <option value="clear_night" ${el.weatherMode==='clear_night'?'selected':''}>☾ Clear night</option>
+      <option value="cloudy" ${el.weatherMode==='cloudy'?'selected':''}>☁ Cloudy</option>
+      <option value="fog" ${el.weatherMode==='fog'?'selected':''}>≋ Fog</option>
+      <option value="rain" ${el.weatherMode==='rain'?'selected':''}>🌧 Rain</option>
+      <option value="heavy_rain" ${el.weatherMode==='heavy_rain'?'selected':''}>🌧 Heavy rain</option>
+      <option value="snow" ${el.weatherMode==='snow'?'selected':''}>❄ Snow</option>
+      <option value="heavy_snow" ${el.weatherMode==='heavy_snow'?'selected':''}>❄ Heavy snow</option>
+      <option value="thunderstorm" ${el.weatherMode==='thunderstorm'?'selected':''}>⛈ Thunderstorm</option>
+      </select></div>
+      ${colorBlock('color','Icon Color',el)}</div>`;
+  } else if(el.type==='diskspace'){
+    h+=`<div class="ps"><div class="pt">All disk drives</div>
+      <div class="pr"><label>Title</label><input value="${el.title||'DRIVE SPACE'}" onchange="sp('title',this.value,true)"></div>
+      <div class="pr"><label>Title size</label><input type="number" min=8 max=60 value="${el.titleFontSize||16}" onchange="sp('titleFontSize',+this.value,true)"></div>
+      <div class="pr"><label>Text size</label><input type="number" min=8 max=40 value="${el.fontSize||13}" onchange="sp('fontSize',+this.value,true)"></div>
+      <div class="pr"><label>Corner radius</label><input type="number" min=0 max=100 value="${el.cornerRadius||0}" onchange="sp('cornerRadius',+this.value,true)"></div>
+      ${colorBlock('bgColor','Background',el)}${colorBlock('color','Text',el)}${colorBlock('fillColor','Usage bar',el)}${colorBlock('trackColor','Bar background',el)}</div>`;
+  } else if(el.type==='weatherparticles'){
+    h+=`<div class="ps"><div class="pt">Weather particles</div>
+      <div class="pr"><label>Mode</label><select onchange="sp('particleMode',this.value,true)">
+      <option value="auto" ${(!el.particleMode||el.particleMode==='auto')?'selected':''}>Automatic (current weather)</option>
+      <option value="clear_day" ${el.particleMode==='clear_day'?'selected':''}>Clear day</option>
+      <option value="clear_night" ${el.particleMode==='clear_night'?'selected':''}>Clear night</option>
+      <option value="cloudy" ${el.particleMode==='cloudy'?'selected':''}>Cloudy</option>
+      <option value="fog" ${el.particleMode==='fog'?'selected':''}>Fog</option>
+      <option value="rain" ${el.particleMode==='rain'?'selected':''}>Rain</option>
+      <option value="heavy_rain" ${el.particleMode==='heavy_rain'?'selected':''}>Heavy rain</option>
+      <option value="snow" ${el.particleMode==='snow'?'selected':''}>Snow</option>
+      <option value="heavy_snow" ${el.particleMode==='heavy_snow'?'selected':''}>Heavy snow</option>
+      <option value="thunderstorm" ${el.particleMode==='thunderstorm'?'selected':''}>Thunderstorm</option>
+      </select></div>
+      <div class="pr"><label>Particles</label><input type="number" min="4" max="80" value="${el.particleCount||24}" onchange="sp('particleCount',+this.value,true)"></div>
+      <div class="pr"><label>Speed</label><input type="number" min="0.2" max="3" step="0.1" value="${el.particleSpeed||1}" onchange="sp('particleSpeed',+this.value,true)"></div>
+      ${colorBlock('particleColor','Particle Color',el)}${colorBlock('bgColor','Background',el)}
+      <div class="phint">Particles are rendered only when this element exists in the theme.</div></div>`;
+  } else if(el.type==='equalizer'){
+    h+=`<div class="ps"><div class="pt">Player equalizer</div>
+      <div class="pr"><label>Bars</label><input type="number" min="5" max="64" value="${el.barCount||24}" onchange="sp('barCount',+this.value,true)"></div>
+      <div class="pr"><label>Bar gap</label><input type="number" min="0" max="12" value="${el.barGap||3}" onchange="sp('barGap',+this.value,true)"></div>
+      ${colorBlock('fillColor','Bar Color',el)}${colorBlock('bgColor','Background',el)}</div>`;
+  } else if(el.type==='image_sensor'){
+    h+=`<div class="ps"><div class="pt">Player cover</div>${colorBlock('coverColor','Placeholder Color',el)}${colorBlock('color','Icon Color',el)}</div>`;
   } else if(el.type==='image'){
     h+=`<div class="ps"><div class="pt">Image Layer</div>
     <div class="pr"><label>File</label><span style="font-size:10px;color:var(--muted);flex:1;overflow:hidden;text-overflow:ellipsis">${el.filename||'none'}</span></div>
@@ -1197,7 +1440,7 @@ const TLBL={text:'val',static:'txt',clock:'clk',date:'dte',weekday:'day',
 
 function refreshLayers(){
   const ll=$('ll');ll.innerHTML='';
-  for(const el of [...elems].sort((a,b)=>b.z-a.z)){
+  for(const el of [...elems].filter(e=>!e.screenMode||e.screenMode==='all'||e.screenMode===activeScreenMode).sort((a,b)=>b.z-a.z)){
     const name=el.type==='static'?(el.customText||'Label'):el.type==='image'?(el.filename||'image'):(sLabel(el.sensorKey)||el.type);
     const div=document.createElement('div');
     div.className='lr'+(el.id===selId?' active':'');div.dataset.id=el.id;
@@ -1267,6 +1510,8 @@ function saveSensorMap(mbg){
 
 function loadThemeJson(theme){
   clearAllSilent();
+  themeMetadata={};for(const k of ['autoScreens','weather'])if(theme[k]!==undefined)themeMetadata[k]=theme[k];
+  activeScreenMode='work';
   if(theme.sensorMap)Object.assign(sensorMap,theme.sensorMap);
   if(theme.themeColors)themeColors=theme.themeColors;
   if(theme.visibleSensors)visibleSensors=new Set(theme.visibleSensors);
@@ -1279,12 +1524,16 @@ function loadThemeJson(theme){
     backData={name,isVideo:isVid,data:theme.backgroundImage};
     showBg(theme.backgroundImage,name,isVid);
   }
-  for(const el of theme.elements||[]){
+  const importedElements=theme.elements||[];
+  const distinctScreens=[...new Set(importedElements.map(e=>e.screenMode).filter(m=>['gaming','work','idle'].includes(m)))];
+  const singleScreen=distinctScreens.length<=1;
+  for(const el of importedElements){
+    if(singleScreen)el.screenMode='work';
     elems.push(el);renderEl(el);
     nid=Math.max(nid,parseInt(el.id.replace('el_',''))+1);
     nz=Math.max(nz,el.z+1);
   }
-  refreshLayers();updStatus();setTimeout(()=>chZoom(0),80);
+  refreshLayers();updStatus();setScreenMode(activeScreenMode);setTimeout(()=>chZoom(0),80);
   toast('Loaded: '+(theme.name||'theme'));
 }
 
@@ -1463,6 +1712,7 @@ async function importSensorList(){
 async function exportTheme(){
   const name=$('themeName').value.trim()||'MyTheme';
   const theme={
+    ...themeMetadata,
     name,width:CW,height:CH,background:'#111114',
     backgroundImage:backData?.data||null,
     backgroundImageName:backData?.name||null,
@@ -2206,10 +2456,53 @@ function layoutHorizontal(vibe, sensorList, margin, usableW){
 // ── INIT ──────────────────────────────────────────────────────────────────────
 buildPalette();
 setOri('vertical');
+setScreenMode('work');
 setTimeout(()=>chZoom(0),100);
 refreshLayers();updStatus();
 // Prompt to import sensor list on first load (after short delay so UI is ready)
 setTimeout(()=>promptSensorImport(), 600);
+
+// Lightweight interface localization for the editor's primary controls and palette.
+const UI_TEXT={
+ ru:{theme:'Название темы',vert:'▯ Вертикально',horiz:'▭ Горизонтально',screen:'Экран:',gaming:'🎮 Игры',work:'💼 Работа',idle:'☕ Простой',undo:'↶ Отменить',redo:'↷ Повторить',fit:'Вписать',background:'🖼 Фон',image:'+ Изображение',sensorMap:'⚙ Карта датчиков',sensors:'🔍 Датчики',ai:'✨ Генерация ИИ',clear:'Очистить',import:'📂 Импорт',save:'💾 Сохранить тему',elements:'ЭЛЕМЕНТЫ',filter:'🔍 Фильтр…',properties:'СВОЙСТВА',layers:'СЛОИ — ↑ наверх · Del — удалить · щелчок — выбрать',ready:'Готово',nothing:'Ничего не выбрано',time:'⏱ Время и дата',cpu:'🖥 Процессор',gpu:'🎮 Видеокарта',ram:'🧠 Память',storage:'💾 Накопители',motherboard:'🔌 Материнская плата',network:'🌐 Сеть',framerate:'🎯 Частота кадров',system:'⚙ Система',dashboard:'🌦 Погода и плеер',_static:'✏ Текст / декор'},
+ en:{theme:'Theme name',vert:'▯ Vertical',horiz:'▭ Horizontal',screen:'Screen:',gaming:'🎮 Gaming',work:'💼 Work',idle:'☕ Idle',undo:'↶ Undo',redo:'↷ Redo',fit:'Fit',background:'🖼 Background',image:'+ Image',sensorMap:'⚙ Sensor Map',sensors:'🔍 Sensors',ai:'✨ AI Generate',clear:'Clear',import:'📂 Import',save:'💾 Save Theme',elements:'ELEMENTS',filter:'🔍 Filter…',properties:'PROPERTIES',layers:'LAYERS — ↑ front · Del=delete · click=select',ready:'Ready',nothing:'Nothing selected',time:'⏱ Time & Date',cpu:'🖥 CPU',gpu:'🎮 GPU',ram:'🧠 RAM',storage:'💾 Storage',motherboard:'🔌 Motherboard',network:'🌐 Network',framerate:'🎯 Framerate',system:'⚙ System',dashboard:'🌦 Weather & Player',_static:'✏ Static / Decorative'}
+};
+function setLanguage(lang){
+ const t=UI_TEXT[lang]||UI_TEXT.en;document.documentElement.lang=lang;
+ const set=(selector,value)=>{const n=document.querySelector(selector);if(n)n.textContent=value;};
+ $('themeName').placeholder=t.theme;
+ set('#btnV',t.vert);set('#btnH',t.horiz);set('#topbar span[style*="font-size:10px"]',t.screen);
+ set('#modeGaming',t.gaming);set('#modeWork',t.work);set('#modeIdle',t.idle);set('#undoBtn',t.undo);set('#redoBtn',t.redo);
+ const btns=[...document.querySelectorAll('#topbar button')];for(const b of btns){const oc=b.getAttribute('onclick')||'';if(oc.includes('chZoom(0)'))b.textContent=t.fit;else if(oc.includes('loadBack'))b.textContent=t.background;else if(oc.includes('loadImgLayer'))b.textContent=t.image;else if(oc.includes('openSensorMap'))b.textContent=t.sensorMap;else if(oc.includes('importSensorList'))b.textContent=t.sensors;else if(oc.includes('openAiGenerate'))b.textContent=t.ai;else if(oc.includes('clearAll'))b.textContent=t.clear;else if(oc.includes('importTheme'))b.textContent=t.import;else if(oc.includes('exportTheme'))b.textContent=t.save;}
+ set('#sidebar .sh',t.elements);$('sbar-search').placeholder=t.filter;set('#pb .pt',t.properties);set('#lp .sh',t.layers);set('#sb>span:first-child',t.ready);set('#sinfo',t.nothing);
+ document.querySelectorAll('.egrp').forEach(g=>{const k=g.dataset.cat;if(t[k]){const title=g.querySelector('.egtitle');if(title)title.innerHTML=`<span class="egarrow">▾</span>${t[k]}`;}});
+}
+// Translate all dynamically rendered Properties labels, section headers, options and tooltips.
+const PROP_RU={
+'Position & Size':'Положение и размер','Appearance':'Внешний вид','Visibility':'Видимость','Alignment':'Выравнивание','Horizontal':'По горизонтали','Vertical':'По вертикали','Snap drag':'Привязка при перетаскивании','Corner radius':'Радиус скругления','Block color':'Цвет блока','Background image':'Фоновое изображение','Choose…':'Выбрать…','Remove':'Удалить','Image fit':'Режим изображения','Cover':'Заполнить','Contain':'Вместить','Stretch':'Растянуть','Image':'Изображение','Visible':'Видимый','Screen':'Экран','All screens':'Все экраны','Gaming':'Игры','Work':'Работа','Idle':'Простой','Clock':'Часы','Format':'Формат','12-hour (AM/PM)':'12-часовой (AM/PM)','24-hour':'24-часовой','Seconds':'Секунды','Date Format':'Формат даты','Preset':'Шаблон','Font':'Шрифт','Family':'Семейство','Type font name':'Введите название шрифта','System Fonts':'Системные шрифты','Font File…':'Файл шрифта…','Size px':'Размер, px','Bold':'Жирный','Italic':'Курсив','Underline':'Подчёркивание','Letter spacing':'Межбуквенный интервал','Align':'Выравнивание','left':'слева','center':'по центру','right':'справа','Text Color':'Цвет текста','Color':'Цвет','Alpha':'Прозрачность','Save to palette':'Сохранить в палитру','Z-Order':'Порядок слоёв','Width':'Ширина','Height':'Высота','X':'X','Y':'Y','Select an element':'Выберите элемент','to edit its properties.':'для настройки его свойств.','Opacity':'Непрозрачность','Text':'Текст','Content':'Содержимое','Style':'Стиль','Background':'Фон','Border':'Граница','Fill Color':'Цвет заливки','Text Color':'Цвет текста','Weather':'Погода','Player':'Плеер','Icon size':'Размер значка','Icon color':'Цвет значка','Bar count':'Количество полос','Gap':'Интервал','Apply':'Применить','Reset':'Сбросить','None':'Нет','Top':'Сверху','Mid':'По центру','Bot':'Снизу','Save':'Сохранить','Cancel':'Отмена','Load fonts installed on this PC (Chrome/Edge only)':'Загрузить шрифты, установленные на этом ПК (только Chrome/Edge)','Load a .ttf or .otf font file':'Загрузить файл шрифта .ttf или .otf'
+};
+const PROP_EN=Object.fromEntries(Object.entries(PROP_RU).map(([a,b])=>[b,a]));
+function translateProperties(lang){
+ const root=$('pc');if(!root)return;const dict=lang==='ru'?PROP_RU:PROP_EN;
+ const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);let node;
+ while((node=walker.nextNode())){const raw=node.nodeValue,trim=raw.trim();if(dict[trim])node.nodeValue=raw.replace(trim,dict[trim]);}
+ root.querySelectorAll('input[placeholder],button[title],select option').forEach(n=>{const attr=n.tagName==='INPUT'?'placeholder':n.tagName==='BUTTON'?'title':null;if(attr&&dict[n.getAttribute(attr)])n.setAttribute(attr,dict[n.getAttribute(attr)]);if(n.tagName==='OPTION'&&dict[n.textContent.trim()])n.textContent=dict[n.textContent.trim()];});
+}
+// Observe only newly inserted property controls. Do not observe characterData:
+// translating text nodes would otherwise retrigger the observer unnecessarily.
+let propertyTranslationQueued = false;
+const propObserver = new MutationObserver(() => {
+  if (propertyTranslationQueued) return;
+  propertyTranslationQueued = true;
+  queueMicrotask(() => {
+    propertyTranslationQueued = false;
+    translateProperties($('languageSelect')?.value || 'ru');
+  });
+});
+const propertiesRoot = $('pc');
+if (propertiesRoot) propObserver.observe(propertiesRoot, { childList: true, subtree: true });
+$('languageSelect').addEventListener('change',e=>setLanguage(e.target.value));
+setLanguage('ru');
 </script>
 </body>
 </html>

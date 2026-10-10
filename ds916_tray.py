@@ -714,15 +714,43 @@ def _collect_system_metrics():
         except Exception as e:
             log.debug('Network metrics error: %r', e)
 
-        # Fixed drives: use C: and D: when present. Values are GB, not MB.
-        for drive, key in (('C:\\', 'DISK_C'), ('D:\\', 'DISK_D'), ('F:\\', 'DISK_F')):
-            try:
-                total, used, free = __import__('shutil').disk_usage(drive)
-                values[key + '_FREE_GB'] = free / (1024 ** 3)
-                values[key + '_TOTAL_GB'] = total / (1024 ** 3)
-                values[key + '_USED_PCT'] = used * 100.0 / total if total else 0.0
-            except Exception as e:
-                log.debug('Disk metrics unavailable for %s: %r', drive, e)
+        # Enumerate every mounted filesystem with a drive letter, not a fixed
+        # C:/D:/F: list. This supports systems with any number of volumes.
+        try:
+            import string, shutil
+            drives = []
+            if os.name == 'nt':
+                try:
+                    bitmask = ctypes.windll.kernel32.GetLogicalDrives()
+                    for idx, letter in enumerate(string.ascii_uppercase):
+                        if bitmask & (1 << idx):
+                            drives.append(letter + ':\\')
+                except Exception:
+                    drives = [letter + ':\\' for letter in string.ascii_uppercase if os.path.exists(letter + ':\\')]
+            else:
+                # On non-Windows, keep root as a useful single filesystem entry.
+                drives = ['/']
+            drive_rows = []
+            for drive in drives:
+                try:
+                    total, used, free = shutil.disk_usage(drive)
+                    letter = drive[0].upper() if len(drive) >= 2 and drive[1] == ':' else 'ROOT'
+                    key = 'DISK_' + letter
+                    row = {'name': drive.rstrip('\\/') or drive, 'key': key,
+                           'total_gb': total / (1024 ** 3), 'used_gb': used / (1024 ** 3),
+                           'free_gb': free / (1024 ** 3),
+                           'used_pct': used * 100.0 / total if total else 0.0}
+                    drive_rows.append(row)
+                    values[key + '_FREE_GB'] = row['free_gb']
+                    values[key + '_USED_GB'] = row['used_gb']
+                    values[key + '_TOTAL_GB'] = row['total_gb']
+                    values[key + '_USED_PCT'] = row['used_pct']
+                except Exception as e:
+                    log.debug('Disk metrics unavailable for %s: %r', drive, e)
+            values['DISK_DRIVES'] = drive_rows
+        except Exception as e:
+            log.debug('Disk enumeration failed: %r', e)
+            values['DISK_DRIVES'] = []
 
         # Decode Windows ping output using OEM code page, then parse RU/EN output.
         try:
@@ -1397,9 +1425,18 @@ def render_frame(theme, sensors):
         img.paste(panel.convert('RGB'), (panel_x,panel_y), mask)
 
     # Render only elements assigned to the active auto-screen; untagged legacy themes remain unchanged.
-    active_mode = sensors.get('_DISPLAY_MODE', 'gaming')
-    elements = [e for e in theme.get('elements', []) if e.get('screenMode') in (None, 'all', active_mode)]
-    elements = sorted(elements, key=lambda e: e.get('z',0))
+    active_mode = str(sensors.get('_DISPLAY_MODE', 'gaming')).strip().lower()
+    def _mode_matches(element):
+        mode = element.get('screenMode')
+        return mode in (None, '', 'all', 'All') or str(mode).strip().lower() == active_mode
+    elements = [e for e in theme.get('elements', []) if _mode_matches(e)]
+    # Weather particles are an overlay layer: render them after normal elements
+    # so a later-added card cannot accidentally cover the animation.
+    def _element_order(element):
+        typ = str(element.get('type', '')).lower().replace('_', '').replace('-', '')
+        particle_layer = typ in ('weatherparticles', 'particles', 'weatherparticle')
+        return (1 if particle_layer else 0, element.get('z', 0))
+    elements = sorted(elements, key=_element_order)
 
     for el in elements:
         if not el.get('visible', True): continue
@@ -1407,7 +1444,7 @@ def render_frame(theme, sensors):
         y   = int(el.get('y', 0))
         w   = int(el.get('w', 100))
         h   = int(el.get('h', 30))
-        typ = el.get('type','')
+        typ = str(el.get('type','')).lower().replace('_', '').replace('-', '')
 
         if typ in ('text','static','clock','date','weekday'):
             fs    = int(el.get('fontSize', 32))
@@ -1727,12 +1764,144 @@ def render_frame(theme, sensors):
                     label = str(day); bb=draw.textbbox((0,0),label,font=df); tw=bb[2]-bb[0]
                     draw.text((int(cx-tw/2), cy-12), label, font=df, fill=txtc)
 
+        elif typ=='diskspace':
+            # Dynamic multi-volume card: display every available drive from the
+            # sensor collector, with a compact usage bar per drive.
+            rows = sensors.get('DISK_DRIVES', []) or []
+            try:
+                rows = sorted(rows, key=lambda r: str(r.get('name', '')))
+            except Exception:
+                rows = []
+            panel = Image.new('RGBA', (max(1, w), max(1, h)), color_rgba(el.get('bgColor', '#101c2be8')))
+            pd = ImageDraw.Draw(panel, 'RGBA')
+            radius = max(0, int(el.get('cornerRadius', 10)))
+            if radius:
+                mask = Image.new('L', panel.size, 0); ImageDraw.Draw(mask).rounded_rectangle((0,0,w-1,h-1), radius=radius, fill=255)
+                panel.putalpha(mask)
+            title_font = get_font(el.get('fontFamily', 'Segoe UI'), int(el.get('titleFontSize', 16)), True)
+            value_font = get_font(el.get('fontFamily', 'Segoe UI'), int(el.get('fontSize', 13)), False)
+            fg = color_rgba(el.get('color', '#ffffffff'))
+            accent = color_rgba(el.get('fillColor', '#00e888ff'))
+            muted = color_rgba(el.get('mutedColor', '#b8c7d9ff'))
+            pd.text((12, 8), str(el.get('title', 'DRIVE SPACE')), font=title_font, fill=accent)
+            if not rows:
+                pd.text((12, 34), 'No drives detected', font=value_font, fill=muted)
+            else:
+                top = max(30, int(el.get('headerHeight', 32)))
+                row_h = max(24, (h - top - 4) // max(1, len(rows)))
+                # If there are many drives, the row height shrinks to fit; the
+                # element itself can be resized in the theme editor.
+                for i, row in enumerate(rows):
+                    yy = top + i * row_h
+                    if yy + row_h > h: break
+                    name = str(row.get('name', '?'))
+                    used = float(row.get('used_gb', 0) or 0)
+                    free = float(row.get('free_gb', 0) or 0)
+                    pct = max(0.0, min(100.0, float(row.get('used_pct', 0) or 0)))
+                    label = f"{name}  {used:.0f} GB used / {free:.0f} GB free"
+                    pd.text((12, yy), label, font=value_font, fill=fg)
+                    bar_y = yy + max(15, row_h - 9)
+                    bar_x1, bar_x2 = 12, max(13, w - 12)
+                    pd.rounded_rectangle((bar_x1, bar_y, bar_x2, min(h-3, bar_y+5)), radius=2, fill=color_rgba(el.get('trackColor', '#263443ff')))
+                    fill_x = bar_x1 + int((bar_x2 - bar_x1) * pct / 100.0)
+                    if fill_x > bar_x1:
+                        pd.rounded_rectangle((bar_x1, bar_y, fill_x, min(h-3, bar_y+5)), radius=2, fill=accent)
+            img.alpha_composite(panel, (x, y)) if img.mode == 'RGBA' else img.paste(panel, (x, y), panel)
+
+        elif typ in ('weatherparticles', 'weatherparticle', 'particles'):
+            # Theme-authored particle layer: no particles are drawn unless the
+            # active theme explicitly contains a weatherparticles element.
+            import math
+            mode = str(el.get('particleMode', 'auto')).lower()
+            count = max(4, min(80, int(el.get('particleCount', 24))))
+            speed = max(0.2, min(3.0, float(el.get('particleSpeed', 1.0))))
+            phase = time.monotonic() * speed if cfg.get('decorative_animation', True) else 0.0
+            wc_raw = sensors.get('WEATHER_CODE', -1)
+            try: wc = int(wc_raw)
+            except Exception: wc = -1
+            snow_codes = (71, 73, 75, 77, 85, 86)
+            rain_codes = (51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82, 95, 96, 99)
+            is_day = bool(int(sensors.get('WEATHER_IS_DAY', 1) or 0))
+            if mode == 'auto':
+                effective_mode = ('snow' if wc in snow_codes else 'thunderstorm' if wc in (95, 96, 99) else
+                                   'rain' if wc in rain_codes else 'fog' if wc in (45, 48) else
+                                   'cloudy' if wc in (2, 3) else 'clear_day' if wc in (0, 1) and is_day else
+                                   'clear_night' if wc in (0, 1) and not is_day else 'cloudy')
+            else:
+                effective_mode = mode
+            # Modes can be selected explicitly in the theme editor; map them to
+            # particle behavior while preserving the authored choice.
+            if effective_mode in ('heavy_rain', 'thunderstorm'):
+                rain_factor = 1.8 if effective_mode == 'heavy_rain' else 1.35
+                particle_kind = 'rain'
+            else:
+                rain_factor = 1.0
+                particle_kind = 'snow' if effective_mode in ('snow', 'heavy_snow') else 'rain'
+            if effective_mode in ('clear_day', 'clear_night'):
+                # No precipitation for clear conditions; leave a subtle star/sun-dust field.
+                particle_kind = 'clear'
+            elif effective_mode in ('cloudy', 'fog'):
+                particle_kind = effective_mode
+            col = color_rgba(el.get('particleColor', '#d7efffff'))
+            for i in range(count):
+                fx = ((i * 37 + 13) % 101) / 100.0
+                base_y = ((i * 53 + 7) % 101) / 100.0
+                drift = math.sin(phase * 0.7 + i * 1.7) * 0.025 if cfg.get('decorative_animation', True) else 0
+                if particle_kind in ('snow', 'clear'):
+                    yy = (base_y + phase * (0.035 + (i % 4) * 0.009) * (1.7 if effective_mode == 'heavy_snow' else 1.0)) % 1.0
+                    xx = min(0.99, max(0.01, fx + drift))
+                    r = 1 + i % 3
+                    px, py = int(x + xx * w), int(y + yy * h)
+                    draw.ellipse((px-r, py-r, px+r, py+r), fill=col)
+                elif particle_kind in ('cloudy', 'fog'):
+                    yy = (base_y + phase * (0.012 if particle_kind == 'fog' else 0.006)) % 1.0
+                    xx = min(0.99, max(0.01, fx + drift * 2))
+                    px, py = int(x + xx * w), int(y + yy * h)
+                    r = 2 + (i % 4)
+                    draw.ellipse((px-r*2, py-r, px+r*2, py+r), fill=col)
+                else:
+                    yy = (base_y + phase * (0.22 + (i % 5) * 0.025) * rain_factor) % 1.0
+                    xx = min(0.99, max(0.01, fx + drift))
+                    px, py = int(x + xx * w), int(y + yy * h)
+                    length = max(4, int(h * (0.07 + (i % 3) * 0.015) * rain_factor))
+                    draw.line((px, py, px-2, py+length), fill=col, width=1 + i % 2)
+
         elif typ=='weathericon':
             # Compact weather glyph follows the global decorative-animation toggle too.
             import math
             phase = time.monotonic() if cfg.get('decorative_animation', True) else 0.0
-            wc = int(sensors.get('WEATHER_CODE', -1) or -1)
-            day = bool(int(sensors.get('WEATHER_IS_DAY', 1) or 0))
+            # Preserve weather code 0 (clear sky); using `value or -1` incorrectly
+            # converted valid zero into the fallback code and drew a cloud.
+            _raw_weather_code = sensors.get('WEATHER_CODE', -1)
+            try:
+                wc = int(_raw_weather_code) if _raw_weather_code is not None and str(_raw_weather_code).strip() != '' else -1
+            except (TypeError, ValueError):
+                wc = -1
+            _raw_is_day = sensors.get('WEATHER_IS_DAY', 1)
+            try:
+                day = bool(int(_raw_is_day)) if _raw_is_day is not None and str(_raw_is_day).strip() != '' else True
+            except (TypeError, ValueError):
+                day = True
+            # Respect the mode selected for this weathericon in the theme.
+            # Previously the renderer always used live sensor values, so explicit
+            # clear-day/clear-night selections inherited a cloud from live weather.
+            icon_mode = str(el.get('weatherMode', 'auto') or 'auto').strip().lower().replace(' ', '_')
+            icon_mode_aliases = {
+                'automatic': 'auto', 'clear_day': 'clear_day', 'clear_night': 'clear_night',
+                'cloudy': 'cloudy', 'fog': 'fog', 'rain': 'rain', 'heavy_rain': 'heavy_rain',
+                'snow': 'snow', 'heavy_snow': 'heavy_snow', 'thunderstorm': 'thunderstorm'
+            }
+            icon_mode = icon_mode_aliases.get(icon_mode, 'auto')
+            if icon_mode != 'auto':
+                # Reuse the renderer's established weather-code drawing paths,
+                # but override the live code when a fixed preview mode is selected.
+                icon_mode_codes = {
+                    'clear_day': (0, True), 'clear_night': (0, False),
+                    'cloudy': (3, True), 'fog': (45, True), 'rain': (61, True),
+                    'heavy_rain': (65, True), 'snow': (73, True),
+                    'heavy_snow': (75, True), 'thunderstorm': (95, True)
+                }
+                wc, day = icon_mode_codes[icon_mode]
             cx, cy = x + w//2, y + h//2
             # Glyph is authored around a 68 px canvas; scale its drawing to the theme element.
             _ws = min(w, h) / 68.0
@@ -1873,120 +2042,8 @@ def render_frame(theme, sensors):
                 by = y + max_h - bh
                 draw.rectangle((bx, by, bx+bar_w, y+max_h), fill=color)
 
-    # Weather artwork and decorative particles. The single option freezes every
-    # animated component in place when decorative_animation is disabled.
-    if active_mode in ('idle', 'work'):
-        try:
-            import math
-            weather_base = img.copy() if active_mode == 'work' else None
-            anim = ImageDraw.Draw(img, 'RGBA')
-            animated = bool(cfg.get('decorative_animation', True))
-            t = time.monotonic() if animated else 0.0
-            # A zero phase produces a stable, repeatable frame with all effects visible.
-            code_raw = sensors.get('WEATHER_CODE', -1)
-            code = int(code_raw) if code_raw is not None else -1
-            is_day = bool(int(sensors.get('WEATHER_IS_DAY', 1) or 0))
-            now_month = datetime.now().month
-            season = ('winter' if now_month in (12, 1, 2) else
-                      'spring' if now_month in (3, 4, 5) else
-                      'summer' if now_month in (6, 7, 8) else 'autumn')
-            cx, cy = (W // 2 - 55 if active_mode == 'work' else W // 2), (1200 if active_mode == 'work' else 1420)
-            weather_scale = 0.34 if active_mode == 'work' else 1.0
-            clear_codes = (0, 1, 2, 3, -1)
-            snow_codes = (71, 73, 75, 77, 85, 86)
-            rain_codes = (51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82)
-            storm_codes = (95, 96, 99)
-            cloudy = code in (2, 3, 45, 48, *rain_codes, *snow_codes, *storm_codes, -1)
-
-            # Sun rays rotate; with animation disabled they remain at their initial angle.
-            if code in clear_codes:
-                if is_day:
-                    sun_r = int(72 * weather_scale)
-                    anim.ellipse((cx-sun_r, cy-sun_r, cx+sun_r, cy+sun_r), fill=(255,190,55,245))
-                    for a in range(12):
-                        ang = a * math.pi / 6 + t * 0.10
-                        x1 = cx + int(84 * weather_scale * math.cos(ang)); y1 = cy + int(84 * weather_scale * math.sin(ang))
-                        x2 = cx + int(106 * weather_scale * math.cos(ang)); y2 = cy + int(106 * weather_scale * math.sin(ang))
-                        anim.line((x1, y1, x2, y2), fill=(255,208,90,230), width=max(2, int(5 * weather_scale)))
-                else:
-                    # Moon stays in place; the crescent shadow gently drifts when animation is on.
-                    moon_r = int(66 * weather_scale)
-                    anim.ellipse((cx-moon_r, cy-moon_r, cx+moon_r, cy+moon_r), fill=(215,230,255,245))
-                    moon_dx = int(8 * weather_scale * math.sin(t * 0.35))
-                    anim.ellipse((cx-int(28*weather_scale)+moon_dx, cy-int(88*weather_scale), cx+int(88*weather_scale)+moon_dx, cy+int(28*weather_scale)), fill=(7,21,47,255))
-
-            # Clouds drift gently horizontally; their positions freeze when t == 0.
-            if cloudy:
-                cloud = (178,202,226,245) if code not in (45,48) else (145,163,181,235)
-                cloud_dx = int(13 * weather_scale * math.sin(t * 0.22))
-                ox, oy = cx + cloud_dx, cy + int(24 * weather_scale)
-                anim.ellipse((ox-int(108*weather_scale),oy-int(36*weather_scale),ox-int(22*weather_scale),oy+int(48*weather_scale)), fill=cloud)
-                anim.ellipse((ox-int(66*weather_scale),oy-int(88*weather_scale),ox+int(42*weather_scale),oy+int(50*weather_scale)), fill=cloud)
-                anim.ellipse((ox+int(10*weather_scale),oy-int(56*weather_scale),ox+int(105*weather_scale),oy+int(47*weather_scale)), fill=cloud)
-                anim.rounded_rectangle((ox-int(88*weather_scale),oy+int(1*weather_scale),ox+int(78*weather_scale),oy+int(52*weather_scale)), radius=max(4,int(18*weather_scale)), fill=cloud)
-
-            # Weather precipitation is retained: rain streaks and snowflakes move with phase.
-            if code in rain_codes or code in storm_codes:
-                for i in range(7):
-                    xx = cx - 58 + i * 18
-                    yy = cy + 61 + int((t * 70 + i * 17) % 68)
-                    drift = int(3 * math.sin(t * 1.1 + i))
-                    anim.line((xx+drift, yy, xx-4+drift, yy+13), fill=(75,165,255,205), width=3)
-            elif code in snow_codes:
-                for i in range(9):
-                    xx = cx - 66 + i * 16 + int(4 * math.sin(t * 0.7 + i * 0.8))
-                    yy = cy + 60 + int((t * 25 + i * 13) % 74)
-                    r = 3 if i % 2 else 4
-                    col = (235,245,255,235)
-                    anim.ellipse((xx-r,yy-r,xx+r,yy+r), fill=col)
-                    anim.line((xx-r-2,yy,xx+r+2,yy), fill=col, width=1)
-                    anim.line((xx,yy-r-2,xx,yy+r+2), fill=col, width=1)
-
-            # Lightning flickers while enabled; remains visible and static when disabled.
-            if code in storm_codes:
-                flash = 255 if (not animated or int(t * 3) % 5 in (0, 1)) else 150
-                anim.line((cx+24,cy+54,cx-2,cy+99,cx+20,cy+99,cx-9,cy+145),
-                          fill=(255,226,92,flash), width=8)
-
-            # Ambient seasonal particles remain present. Rain/snow take priority over seasonal motifs.
-            ax0, ax1 = (52, W - 52) if active_mode == 'work' else (38, W - 38)
-            ay0, ay1 = (1145, 1300) if active_mode == 'work' else (1180, 1380)
-            if code in snow_codes:
-                particle_color=(224,241,255,190); count=25; motion=22
-            elif code in rain_codes or code in storm_codes:
-                particle_color=(75,165,255,155); count=30; motion=95
-            elif season == 'winter':
-                particle_color=(205,230,255,180); count=22; motion=22
-            elif season == 'spring':
-                particle_color=(255,145,190,175); count=18; motion=25
-            elif season == 'summer':
-                particle_color=(255,205,90,155); count=17; motion=15
-            else:
-                particle_color=(224,135,65,185); count=20; motion=28
-            for i in range(count):
-                span = max(1, ax1 - ax0)
-                px = ax0 + int((i*53 + t*(7+i%5)*(motion/8)) % span)
-                py = ay0 + int((i*37 + t*(motion/4+i%4)*2) % max(1, ay1-ay0))
-                if season == 'autumn' and code not in snow_codes and code not in rain_codes and code not in storm_codes:
-                    r = 3 + (i % 3)
-                    rot = t * (0.8 + (i % 4) * 0.2)
-                    dx, dy = int(r*math.cos(rot)), int(r*math.sin(rot))
-                    anim.polygon([(px,py-r),(px+dx,py),(px,py+r),(px-dx,py)], fill=particle_color)
-                elif season == 'spring' and code not in snow_codes and code not in rain_codes and code not in storm_codes:
-                    r = 2 + (i % 2)
-                    anim.ellipse((px-r,py-r,px+r,py+r), fill=particle_color)
-                elif code in rain_codes or code in storm_codes:
-                    anim.line((px,py,px-3,py+10), fill=particle_color, width=2)
-                else:
-                    r = 2 + (i % 2)
-                    anim.ellipse((px-r,py-r,px+r,py+r), fill=particle_color)
-            if active_mode == 'work' and weather_base is not None:
-                # Hard clip the complete animated sky to the weather panel; it must never spill into the player or date area.
-                clip = Image.new('L', img.size, 0)
-                ImageDraw.Draw(clip).rectangle((14, 1120, 447, 1538), fill=255)
-                img.paste(weather_base, (0, 0), Image.eval(clip, lambda px: 255-px))
-        except Exception as e:
-            log.debug('Weather/season animation render failed: %r', e)
+    # Weather artwork and particles are theme-authored: only explicit `weathericon`
+    # and `weatherparticles` elements are rendered. No automatic screen overlay is added.
 
     # Keep weather-refresh timestamps above the decorative weather/season layer.
     # The sky and particles are intentionally rendered after normal theme elements,
@@ -2835,7 +2892,7 @@ def open_settings():
 
     # Use Toplevel (child of hidden root) — NOT tk.Tk() which breaks on reopen
     win = tk.Toplevel(_tk_root)
-    win.title('DS916 v0.48.4 — Настройки')
+    win.title('DS916 v0.48.6 — Настройки')
     win.geometry('700x800')
     win.configure(bg='#18181c')
     win.resizable(True, True)
@@ -3063,7 +3120,7 @@ def open_settings():
 
     # ── About tab ───────────────────────────────────────────────────────────
     import webbrowser
-    ttk.Label(t_about, text='DS916 v0.48.4', font=('Segoe UI', 18, 'bold'),
+    ttk.Label(t_about, text='DS916 v0.48.6', font=('Segoe UI', 18, 'bold'),
               foreground='#00b4ff').pack(anchor='w', padx=18, pady=(18, 6))
     repo_link = ttk.Label(t_about, text='GitHub: https://github.com/tbrggreen/DS916Tray',
                           foreground='#52baff', cursor='hand2', wraplength=620)
@@ -3531,7 +3588,7 @@ def update_tray_icon():
     if not _tray: return
     status = '● Running' if _running else '○ Stopped'
     theme_name = _current_theme.get('name','No theme') if _current_theme else 'No theme loaded'
-    _tray.title = f'DS916 v0.48.4 — {status}\n{theme_name}'
+    _tray.title = f'DS916 v0.48.6 — {status}\n{theme_name}'
 
 # ── Main-thread dispatcher ────────────────────────────────────────────────────
 # pystray callbacks run on a background thread. tkinter dialogs MUST run on the
@@ -3968,7 +4025,7 @@ def build_menu():
         pystray.Menu.SEPARATOR,
         Item(label('🔍 Discover Sensors'), discover_sensors_tray),
         Item(label('ℹ Status…'), show_status),
-        Item(label('ℹ О программе — DS916 v0.48.4'), open_about_tray),
+        Item(label('ℹ О программе — DS916 v0.48.6'), open_about_tray),
         Item(label('⚙ Settings…'), open_settings_tray),
         pystray.Menu.SEPARATOR,
         Item(label('🗑 Uninstall…'), uninstall_app),
