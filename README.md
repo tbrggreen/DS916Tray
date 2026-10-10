@@ -1,4 +1,4 @@
-# DS916Tray — tbrggreen Edition
+# Jonsbo DS916Tray — tbrggreen Edition
 
 **English | [Русский](#русский)**
 
@@ -106,7 +106,7 @@ The application icon was created for this project by `tbrggreen`. Jonsbo is a th
 
 ## Русский
 
-![DS916Tray — three-screen dashboard](assets/ds916tray-banner.png)
+![Jonsbo DS916Tray — three-screen dashboard](assets/ds916tray-banner.png)
 
 Предварительный просмотр интерфейса на трёх экранах:
 
